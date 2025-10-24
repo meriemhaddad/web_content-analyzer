@@ -22,12 +22,12 @@ COPY . .
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port
+# Expose port (Railway will provide PORT env var)
 EXPOSE 8000
 
-# Health check
+# Health check (using shell form to expand env vars)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:$(echo ${PORT:-8000})/health || exit 1
 
-# Run the application
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Run the application (using shell form to expand PORT env var)
+CMD sh -c "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"

@@ -6,10 +6,23 @@ An advanced web content analysis agent using FastAPI, Azure OpenAI GPT-4o, and M
 
 - **URL Content Analysis**: Analyze any web page URL for content and context
 - **Advanced Semantic Analysis**: Leverage GPT-4o for deep content understanding
-- **Content Categorization**: Intelligent categorization with semantic analysis
-- **Batch Processing**: Support for analyzing multiple URLs (future feature)
+- **Dynamic Content Categorization**: AI-generated categories with semantic analysis
+- **Bulk Processing**: Upload CSV/TXT files with multiple URLs for batch analysis
+- **Copy/Paste Interface**: Web interface for easy team collaboration
+- **Concurrent Processing**: 1-10 URLs analyzed simultaneously for efficiency
 - **MCP Integration**: Uses Model Context Protocol Fetch server for reliable web content retrieval
+- **Production Ready**: Deployed on Railway with automatic HTTPS and scaling
 - **REST API**: FastAPI-based API for easy integration
+
+## 📊 Usage Limits & Capabilities
+
+For detailed information about processing limits, costs, and performance capabilities, see:
+**[USAGE_LIMITS_AND_CAPABILITIES.md](./USAGE_LIMITS_AND_CAPABILITIES.md)**
+
+## 🌐 Live Deployment
+
+**Production URL**: `https://web-content-analyzer-production-88c3.up.railway.app`
+**Bulk Upload Interface**: `https://web-content-analyzer-production-88c3.up.railway.app/bulk-upload`
 
 ## Project Structure
 

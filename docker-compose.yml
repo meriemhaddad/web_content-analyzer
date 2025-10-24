@@ -1,0 +1,22 @@
+# Docker Compose for local testing
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-4o}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-02-01}
+      - ENV=production
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -1,0 +1,22 @@
+# Render deployment configuration
+# Deploy via GitHub integration or render.yaml
+
+services:
+  - type: web
+    name: web-content-analyzer
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: AZURE_OPENAI_ENDPOINT
+        value: YOUR_AZURE_OPENAI_ENDPOINT
+      - key: AZURE_OPENAI_API_KEY
+        value: YOUR_AZURE_OPENAI_API_KEY
+      - key: AZURE_OPENAI_DEPLOYMENT_NAME
+        value: gpt-4o
+      - key: AZURE_OPENAI_API_VERSION
+        value: 2024-02-01
+      - key: ENV
+        value: production
+    healthCheckPath: /health

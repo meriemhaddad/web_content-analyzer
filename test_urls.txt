@@ -1,0 +1,5 @@
+https://www.github.com
+https://www.openai.com
+https://www.microsoft.com
+https://news.ycombinator.com
+https://stackoverflow.com

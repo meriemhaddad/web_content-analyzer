@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk URL Analysis - Upload Interface</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .upload-section.dragover {
+            border-color: #007bff;
+            background-color: #f8f9ff;
+        }
+        
+        .tab-button {
+            padding: 12px 24px;
+            border: none;
+            background-color: #f8f9fa;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button:hover {
+            background-color: #e9ecef;
+            color: #333;
+        }
+        
+        .tab-button.active {
+            background-color: white;
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            margin: 10px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-input-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .file-input-button:hover {
+            background-color: #0056b3;
+        }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .option-group {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #fafafa;
+        }
+        
+        .option-group h3 {
+            margin: 0 0 10px 0;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+        
+        .text-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .number-input {
+            width: 60px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .analyze-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        
+        .analyze-button:hover {
+            background-color: #218838;
+        }
+        
+        .analyze-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .results-section {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .results-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .results-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .status-success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .category-tag {
+            background-color: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #495057;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .success-message {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Bulk URL Content Analysis</h1>
+        
+        <!-- Input Method Tabs -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; border-bottom: 2px solid #e0e0e0;">
+                <button class="tab-button active" onclick="switchTab('file')" id="fileTab">
+                    📁 Upload File
+                </button>
+                <button class="tab-button" onclick="switchTab('paste')" id="pasteTab">
+                    📋 Copy & Paste URLs
+                </button>
+            </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="upload-section" id="fileUploadSection">
+            <h3>📁 Upload URL File</h3>
+            <p>Upload a CSV or TXT file containing URLs for batch analysis</p>
+            
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" class="file-input" accept=".csv,.txt" />
+                <label for="fileInput" class="file-input-button">
+                    Choose File
+                </label>
+            </div>
+            
+            <div id="fileInfo" style="margin-top: 15px; font-size: 14px; color: #666;"></div>
+            
+            <div style="margin-top: 15px; font-size: 12px; color: #888;">
+                <strong>Supported formats:</strong><br>
+                • CSV: url,description (header optional)<br>
+                • TXT: One URL per line<br>
+                • Maximum: 50 URLs per file
+            </div>
+        </div>
+
+        <!-- Copy/Paste Section -->
+        <div class="upload-section" id="pasteUploadSection" style="display: none;">
+            <h3>📋 Copy & Paste URLs</h3>
+            <p>Paste your URLs below, one per line</p>
+            
+            <textarea 
+                id="urlTextarea" 
+                placeholder="Paste your URLs here, one per line:&#10;&#10;https://www.example1.com&#10;https://www.example2.com&#10;https://www.example3.com"
+                style="width: 100%; height: 200px; padding: 15px; border: 2px solid #ddd; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; resize: vertical; line-height: 1.5;"
+            ></textarea>
+            
+            <div id="urlCount" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
+            
+            <div style="margin-top: 15px; font-size: 12px; color: #888;">
+                <strong>Instructions:</strong><br>
+                • Paste one URL per line<br>
+                • Empty lines will be ignored<br>
+                • Maximum: 50 URLs<br>
+                • URLs should start with http:// or https://
+            </div>
+        </div>
+        
+        <!-- Analysis Options -->
+        <div class="options-grid">
+            <div class="option-group">
+                <h3>📊 Analysis Options</h3>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="includeSentiment" checked>
+                        <label for="includeSentiment">Sentiment Analysis</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="includeEntities" checked>
+                        <label for="includeEntities">Entity Extraction</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="includeSummary" checked>
+                        <label for="includeSummary">Content Summary</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="includeCategory" checked>
+                        <label for="includeCategory">Category Analysis</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="includeKeywords" checked>
+                        <label for="includeKeywords">Keyword Extraction</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="option-group">
+                <h3>⚙️ Processing Options</h3>
+                <div style="margin-bottom: 10px;">
+                    <label for="analysisDepth" style="display: block; margin-bottom: 5px;">Analysis Depth:</label>
+                    <select id="analysisDepth" class="text-input">
+                        <option value="basic">Basic</option>
+                        <option value="standard">Standard</option>
+                        <option value="comprehensive" selected>Comprehensive</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="maxConcurrent" style="display: block; margin-bottom: 5px;">Max Concurrent:</label>
+                    <input type="number" id="maxConcurrent" class="number-input" min="1" max="10" value="3">
+                </div>
+            </div>
+            
+            <div class="option-group">
+                <h3>🎯 Custom Categories</h3>
+                <input type="text" id="customCategories" class="text-input" 
+                       placeholder="e.g., technology, sports, news">
+                <div style="font-size: 11px; color: #888; margin-top: 5px;">
+                    Comma-separated list (optional)
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analyze Button -->
+        <button class="analyze-button" id="analyzeButton" onclick="startAnalysis()">
+            🔍 Start Analysis
+        </button>
+        
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection">
+            <h2>📈 Analysis Results</h2>
+            
+            <div class="loading" id="loadingIndicator">
+                <div class="spinner"></div>
+                <p>Analyzing URLs... This may take a few moments.</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+            
+            <div id="resultsContent" style="display: none;">
+                <div class="results-summary" id="resultsSummary">
+                    <!-- Stats will be populated here -->
+                </div>
+                
+                <!-- Error Tips Section -->
+                <div id="errorTips" style="display: none; margin: 20px 0; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px;">
+                    <h4 style="margin: 0 0 10px 0; color: #856404;">💡 Common Issues & Solutions</h4>
+                    <div style="font-size: 14px; color: #856404;">
+                        <p><strong>403 Forbidden:</strong> Website blocks automated access. Try accessing the URL manually first, or the site may require login/cookies.</p>
+                        <p><strong>404 Not Found:</strong> URL doesn't exist. Check for typos or if the page has been moved.</p>
+                        <p><strong>429 Rate Limited:</strong> Too many requests. Our system automatically retries with delays.</p>
+                        <p><strong>503 Service Unavailable:</strong> Website is temporarily down. Try again later.</p>
+                    </div>
+                </div>
+                
+                <table class="results-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Status</th>
+                            <th>Category</th>
+                            <th>Sentiment</th>
+                            <th>Confidence</th>
+                            <th>Summary / Error</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <!-- Results will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        let selectedFile = null;
+        
+        // File input handling
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            selectedFile = e.target.files[0];
+            updateFileInfo();
+        });
+        
+        // URL textarea handling
+        document.getElementById('urlTextarea').addEventListener('input', function(e) {
+            updateUrlCount();
+            updateAnalyzeButton();
+        });
+        
+        function switchTab(tabType) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabType + 'Tab').classList.add('active');
+            
+            // Show/hide sections
+            if (tabType === 'file') {
+                document.getElementById('fileUploadSection').style.display = 'block';
+                document.getElementById('pasteUploadSection').style.display = 'none';
+            } else {
+                document.getElementById('fileUploadSection').style.display = 'none';
+                document.getElementById('pasteUploadSection').style.display = 'block';
+            }
+            
+            updateAnalyzeButton();
+        }
+        
+        function updateUrlCount() {
+            const textarea = document.getElementById('urlTextarea');
+            const urls = textarea.value
+                .split('\n')
+                .map(url => url.trim())
+                .filter(url => url.length > 0);
+            
+            const urlCountElement = document.getElementById('urlCount');
+            const count = urls.length;
+            
+            if (count === 0) {
+                urlCountElement.innerHTML = '';
+            } else if (count > 50) {
+                urlCountElement.innerHTML = `<span style="color: #dc3545;"><strong>${count} URLs</strong> - Maximum 50 allowed</span>`;
+            } else {
+                const validUrls = urls.filter(url => /^https?:\/\/.+/i.test(url));
+                const invalidCount = count - validUrls.length;
+                
+                if (invalidCount > 0) {
+                    urlCountElement.innerHTML = `<span style="color: #dc3545;"><strong>${count} URLs</strong> (${invalidCount} invalid format)</span>`;
+                } else {
+                    urlCountElement.innerHTML = `<span style="color: #28a745;"><strong>${count} URLs</strong> ready for analysis</span>`;
+                }
+            }
+        }
+        
+        function updateAnalyzeButton() {
+            const activeTab = document.querySelector('.tab-button.active').id;
+            const button = document.getElementById('analyzeButton');
+            
+            if (activeTab === 'fileTab') {
+                button.disabled = !selectedFile;
+            } else {
+                const textarea = document.getElementById('urlTextarea');
+                const urls = textarea.value
+                    .split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+                
+                button.disabled = urls.length === 0 || urls.length > 50;
+            }
+        }
+        
+        // Drag and drop handling
+        const uploadSection = document.getElementById('fileUploadSection');
+        
+        uploadSection.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+        
+        uploadSection.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+        });
+        
+        uploadSection.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                selectedFile = files[0];
+                document.getElementById('fileInput').files = files;
+                updateFileInfo();
+            }
+        });
+        
+        function updateFileInfo() {
+            const fileInfo = document.getElementById('fileInfo');
+            if (selectedFile) {
+                const size = (selectedFile.size / 1024).toFixed(1);
+                fileInfo.innerHTML = `
+                    <strong>Selected:</strong> ${selectedFile.name} (${size} KB)<br>
+                    <strong>Type:</strong> ${selectedFile.type || 'text/plain'}
+                `;
+            } else {
+                fileInfo.innerHTML = '';
+            }
+            updateAnalyzeButton();
+        }
+        
+        async function startAnalysis() {
+            const activeTab = document.querySelector('.tab-button.active').id;
+            
+            let urlsToAnalyze = [];
+            let useFormData = false;
+            
+            if (activeTab === 'fileTab') {
+                // File upload method
+                if (!selectedFile) {
+                    alert('Please select a file first.');
+                    return;
+                }
+                useFormData = true;
+            } else {
+                // Copy/paste method
+                const textarea = document.getElementById('urlTextarea');
+                const urls = textarea.value
+                    .split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+                
+                if (urls.length === 0) {
+                    alert('Please paste some URLs first.');
+                    return;
+                }
+                
+                if (urls.length > 50) {
+                    alert('Maximum 50 URLs allowed. Please remove some URLs.');
+                    return;
+                }
+                
+                // Validate URLs
+                const urlPattern = /^https?:\/\/.+/i;
+                const invalidUrls = urls.filter(url => !urlPattern.test(url));
+                if (invalidUrls.length > 0) {
+                    alert(`Invalid URLs found:\n${invalidUrls.slice(0, 3).join('\n')}${invalidUrls.length > 3 ? '\n...' : ''}\n\nPlease ensure all URLs start with http:// or https://`);
+                    return;
+                }
+                
+                urlsToAnalyze = urls;
+            }
+            
+            // Show results section and loading
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('resultsContent').style.display = 'none';
+            document.getElementById('analyzeButton').disabled = true;
+            
+            try {
+                let response;
+                
+                if (useFormData) {
+                    // File upload method
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    formData.append('include_sentiment', document.getElementById('includeSentiment').checked);
+                    formData.append('include_entities', document.getElementById('includeEntities').checked);
+                    formData.append('include_summary', document.getElementById('includeSummary').checked);
+                    formData.append('include_category', document.getElementById('includeCategory').checked);
+                    formData.append('include_keywords', document.getElementById('includeKeywords').checked);
+                    
+                    response = await fetch(`${API_BASE}/api/v1/upload-urls`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    // Copy/paste method - use the advanced endpoint with form data
+                    const formData = new FormData();
+                    formData.append('urls_text', urlsToAnalyze.join('\n'));
+                    formData.append('include_sentiment', document.getElementById('includeSentiment').checked);
+                    formData.append('include_entities', document.getElementById('includeEntities').checked);
+                    formData.append('include_summary', document.getElementById('includeSummary').checked);
+                    formData.append('include_category', document.getElementById('includeCategory').checked);
+                    formData.append('include_keywords', document.getElementById('includeKeywords').checked);
+                    formData.append('analysis_depth', document.getElementById('analysisDepth').value);
+                    formData.append('max_concurrent', document.getElementById('maxConcurrent').value);
+                    
+                    const customCategories = document.getElementById('customCategories').value.trim();
+                    if (customCategories) {
+                        formData.append('custom_categories', customCategories);
+                    }
+                    
+                    response = await fetch(`${API_BASE}/api/v1/upload-urls-advanced`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Analysis failed');
+                }
+                
+                const results = await response.json();
+                displayResults(results);
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                document.getElementById('loadingIndicator').innerHTML = `
+                    <div class="error-message">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            } finally {
+                document.getElementById('analyzeButton').disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('resultsContent').style.display = 'block';
+            
+            // Update summary stats
+            const summaryHtml = `
+                <div class="stat-card">
+                    <div class="stat-value">${data.total_urls}</div>
+                    <div class="stat-label">Total URLs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.successful_analyses}</div>
+                    <div class="stat-label">Successful</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.failed_analyses}</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${((data.successful_analyses / data.total_urls) * 100).toFixed(1)}%</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.processing_time_seconds.toFixed(1)}s</div>
+                    <div class="stat-label">Total Time</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${(data.processing_time_seconds / data.total_urls).toFixed(1)}s</div>
+                    <div class="stat-label">Avg Time</div>
+                </div>
+            `;
+            document.getElementById('resultsSummary').innerHTML = summaryHtml;
+            
+            // Show error tips if there are failures
+            if (data.failed_analyses > 0) {
+                document.getElementById('errorTips').style.display = 'block';
+            }
+            
+            // Update results table
+            const tableBody = document.getElementById('resultsTableBody');
+            tableBody.innerHTML = '';
+            
+            data.results.forEach(result => {
+                const row = document.createElement('tr');
+                
+                const statusClass = result.status === 'success' ? 'status-success' : 'status-error';
+                const sentiment = result.sentiment ? result.sentiment.overall : 'N/A';
+                const confidence = result.category_confidence ? (result.category_confidence * 100).toFixed(1) + '%' : 'N/A';
+                
+                // Handle summary/error message
+                let displayText = 'N/A';
+                if (result.status === 'error' && result.error_message) {
+                    // Show error message for failed analyses
+                    displayText = result.error_message.length > 80 ? 
+                        result.error_message.substring(0, 80) + '...' : 
+                        result.error_message;
+                } else if (result.content_summary) {
+                    // Show summary for successful analyses
+                    displayText = result.content_summary.length > 80 ? 
+                        result.content_summary.substring(0, 80) + '...' : 
+                        result.content_summary;
+                }
+                
+                const fullText = result.status === 'error' ? 
+                    result.error_message || 'Unknown error' : 
+                    result.content_summary || '';
+                
+                row.innerHTML = `
+                    <td><a href="${result.url}" target="_blank" style="color: #007bff; text-decoration: none;">${result.url}</a></td>
+                    <td><span class="${statusClass}">${result.status}</span></td>
+                    <td><span class="category-tag">${result.primary_category || 'N/A'}</span></td>
+                    <td>${sentiment}</td>
+                    <td>${confidence}</td>
+                    <td title="${fullText}" style="max-width: 300px; word-wrap: break-word;">${displayText}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // Initialize
+        updateFileInfo();
+        updateAnalyzeButton();
+    </script>
+</body>
+</html>

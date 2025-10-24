@@ -1,0 +1,17 @@
+# Railway deployment configuration
+# This file is automatically detected by Railway for deployment
+
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+startCommand = "uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+
+[env]
+AZURE_OPENAI_ENDPOINT = { required = true, description = "Azure OpenAI endpoint URL" }
+AZURE_OPENAI_API_KEY = { required = true, description = "Azure OpenAI API key" }
+AZURE_OPENAI_DEPLOYMENT_NAME = { default = "gpt-4o", description = "Azure OpenAI deployment name" }
+AZURE_OPENAI_API_VERSION = { default = "2024-02-01", description = "Azure OpenAI API version" }
+ENV = { default = "production", description = "Environment" }

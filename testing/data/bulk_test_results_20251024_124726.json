@@ -1,0 +1,299 @@
+{
+  "test_summary": {
+    "total_urls": 15,
+    "successful": 15,
+    "failed": 0,
+    "exceptions": 0,
+    "success_rate": 100.0,
+    "category_accuracy": 60.0,
+    "total_processing_time": 30.69,
+    "average_processing_time": 5.66,
+    "urls_per_second": 0.49
+  },
+  "detailed_results": [
+    {
+      "test_url": "https://www.lemonde.fr/international/",
+      "description": "Le Monde - International News",
+      "expected_category": "news",
+      "actual_category": "international_news",
+      "secondary_categories": [
+        "politics",
+        "geopolitics",
+        "current_events",
+        "economics",
+        "human_rights"
+      ],
+      "status": "success",
+      "content_summary": "The web page from Le Monde's 'International' section provides comprehensive coverage of global news, including political developments, economic shifts, human rights issues, and geopolitical tensions. ...",
+      "sentiment": "neutral",
+      "confidence": 0.97,
+      "processing_time": 6.8,
+      "success": true
+    },
+    {
+      "test_url": "https://www.leparisien.fr/sports/",
+      "description": "Le Parisien - Sports Section",
+      "expected_category": "sports",
+      "actual_category": "sports",
+      "secondary_categories": [
+        "football",
+        "cycling",
+        "basketball",
+        "rugby",
+        "mma",
+        "tennis",
+        "formula_1",
+        "handball"
+      ],
+      "status": "success",
+      "content_summary": "The webpage provides comprehensive coverage of sports news and updates, including football, cycling, basketball, rugby, MMA, tennis, Formula 1, and handball. It features match schedules, player interv...",
+      "sentiment": "positive",
+      "confidence": 0.98,
+      "processing_time": 6.79,
+      "success": true
+    },
+    {
+      "test_url": "https://www.legorafi.fr/",
+      "description": "Le Gorafi - French Satirical News",
+      "expected_category": "satire",
+      "actual_category": "satire",
+      "secondary_categories": [
+        "humor",
+        "politics",
+        "culture",
+        "society",
+        "news_parody"
+      ],
+      "status": "success",
+      "content_summary": "Le Gorafi is a French satirical news website that publishes humorous and exaggerated articles parodying real-world events, politics, society, and culture. It blends absurdity with commentary on curren...",
+      "sentiment": "neutral",
+      "confidence": 0.98,
+      "processing_time": 6.48,
+      "success": true
+    },
+    {
+      "test_url": "https://www.bbc.com/news/technology",
+      "description": "BBC Technology News",
+      "expected_category": "technology",
+      "actual_category": "technology",
+      "secondary_categories": [
+        "science",
+        "health",
+        "environment",
+        "artificial_intelligence",
+        "innovation",
+        "business",
+        "education"
+      ],
+      "status": "success",
+      "content_summary": "The web page from BBC News Technology provides a diverse range of articles covering advancements in technology, science, health, environment, and artificial intelligence. It explores topics such as lu...",
+      "sentiment": "neutral",
+      "confidence": 0.97,
+      "processing_time": 7.7,
+      "success": true
+    },
+    {
+      "test_url": "https://www.techcrunch.com/",
+      "description": "TechCrunch - Startup News",
+      "expected_category": "technology",
+      "actual_category": "technology_news",
+      "secondary_categories": [
+        "startups",
+        "venture_capital",
+        "ai",
+        "transportation",
+        "media",
+        "entertainment",
+        "government_policy",
+        "apps",
+        "gaming"
+      ],
+      "status": "success",
+      "content_summary": "TechCrunch is a leading technology news platform focusing on startups, venture capital, AI advancements, transportation developments, and Silicon Valley trends. It features coverage of industry events...",
+      "sentiment": "positive",
+      "confidence": 0.98,
+      "processing_time": 6.51,
+      "success": true
+    },
+    {
+      "test_url": "https://www.reuters.com/business/",
+      "description": "Reuters Business News",
+      "expected_category": "business",
+      "actual_category": "other",
+      "secondary_categories": [],
+      "status": "error",
+      "content_summary": "Analysis failed: Failed to fetch content: HTTP 401: HTTP Forbidden...",
+      "sentiment": "neutral",
+      "confidence": 0.0,
+      "processing_time": 0.73,
+      "success": true
+    },
+    {
+      "test_url": "https://www.mayoclinic.org/diseases-conditions",
+      "description": "Mayo Clinic - Health Information",
+      "expected_category": "health",
+      "actual_category": "health",
+      "secondary_categories": [
+        "medical_information",
+        "patient_support",
+        "clinical_trials"
+      ],
+      "status": "success",
+      "content_summary": "The web page provides easy-to-understand information about diseases and conditions, symptom checkers, clinical trials, and support groups, along with highlighting Mayo Clinic's contributions to health...",
+      "sentiment": "positive",
+      "confidence": 0.98,
+      "processing_time": 5.06,
+      "success": true
+    },
+    {
+      "test_url": "https://www.nationalgeographic.com/science/",
+      "description": "National Geographic Science",
+      "expected_category": "science",
+      "actual_category": "science",
+      "secondary_categories": [
+        "paleontology",
+        "environment",
+        "education"
+      ],
+      "status": "success",
+      "content_summary": "The web page explores scientific topics, focusing on paleontology and the preservation of dinosaur remains, while connecting these themes to broader environmental and health contexts....",
+      "sentiment": "neutral",
+      "confidence": 0.97,
+      "processing_time": 4.03,
+      "success": true
+    },
+    {
+      "test_url": "https://www.lonelyplanet.com/france",
+      "description": "Lonely Planet - France Travel Guide",
+      "expected_category": "travel",
+      "actual_category": "travel",
+      "secondary_categories": [
+        "tourism",
+        "destination_guide",
+        "europe"
+      ],
+      "status": "success",
+      "content_summary": "The web page is a comprehensive travel guide to France, highlighting iconic landmarks, cultural experiences, practical travel tips, and planning resources for visitors. It includes recommendations for...",
+      "sentiment": "positive",
+      "confidence": 0.97,
+      "processing_time": 5.56,
+      "success": true
+    },
+    {
+      "test_url": "https://www.bloomberg.com/markets",
+      "description": "Bloomberg Markets",
+      "expected_category": "finance",
+      "actual_category": "finance",
+      "secondary_categories": [
+        "markets",
+        "business",
+        "economics",
+        "investing",
+        "crypto"
+      ],
+      "status": "success",
+      "content_summary": "The Bloomberg Markets page provides comprehensive coverage of global financial markets, including stock indices, commodities, currencies, and fixed income. It features news, analysis, and insights on ...",
+      "sentiment": "neutral",
+      "confidence": 0.98,
+      "processing_time": 7.99,
+      "success": true
+    },
+    {
+      "test_url": "https://www.forbes.com/business/",
+      "description": "Forbes Business",
+      "expected_category": "business",
+      "actual_category": "business_news",
+      "secondary_categories": [
+        "finance",
+        "economy",
+        "politics",
+        "sports",
+        "technology",
+        "entertainment"
+      ],
+      "status": "success",
+      "content_summary": "The Forbes Business page provides a diverse range of articles covering breaking news, analysis, and updates on business-related topics, including corporate developments, economic trends, political imp...",
+      "sentiment": "neutral",
+      "confidence": 0.98,
+      "processing_time": 5.25,
+      "success": true
+    },
+    {
+      "test_url": "https://www.imdb.com/news/movie/",
+      "description": "IMDB Movie News",
+      "expected_category": "entertainment",
+      "actual_category": "entertainment",
+      "secondary_categories": [
+        "movies",
+        "film_news",
+        "celebrity",
+        "awards",
+        "film_festivals",
+        "streaming",
+        "pop_culture"
+      ],
+      "status": "success",
+      "content_summary": "The webpage provides a comprehensive overview of recent movie news, including updates on upcoming films, casting announcements, film festival highlights, streaming releases, and industry developments....",
+      "sentiment": "positive",
+      "confidence": 0.98,
+      "processing_time": 6.43,
+      "success": true
+    },
+    {
+      "test_url": "https://www.allrecipes.com/",
+      "description": "AllRecipes - Cooking & Food",
+      "expected_category": "lifestyle",
+      "actual_category": "recipes",
+      "secondary_categories": [
+        "food",
+        "cooking",
+        "lifestyle",
+        "home_cooking",
+        "seasonal_recipes"
+      ],
+      "status": "success",
+      "content_summary": "The webpage is a comprehensive resource for recipes, cooking tips, and food-related content, featuring a wide variety of dishes, seasonal picks, and community-driven contributions from home cooks....",
+      "sentiment": "positive",
+      "confidence": 0.98,
+      "processing_time": 5.44,
+      "success": true
+    },
+    {
+      "test_url": "https://docs.python.org/3/",
+      "description": "Python Documentation",
+      "expected_category": "documentation",
+      "actual_category": "documentation",
+      "secondary_categories": [
+        "programming",
+        "technology",
+        "education"
+      ],
+      "status": "success",
+      "content_summary": "The web page is the official documentation for Python 3.14.0, providing comprehensive resources for users including tutorials, references, FAQs, and guides on Python installation, usage, and developme...",
+      "sentiment": "neutral",
+      "confidence": 0.98,
+      "processing_time": 4.8,
+      "success": true
+    },
+    {
+      "test_url": "https://stackoverflow.com/questions/tagged/python",
+      "description": "Stack Overflow - Python Questions",
+      "expected_category": "forum",
+      "actual_category": "developer_forum",
+      "secondary_categories": [
+        "programming",
+        "python",
+        "technical_questions",
+        "coding_help"
+      ],
+      "status": "success",
+      "content_summary": "The webpage is a section of Stack Overflow dedicated to Python-related questions. It features a list of recent questions tagged with 'python', covering various technical topics such as file conversion...",
+      "sentiment": "neutral",
+      "confidence": 0.98,
+      "processing_time": 5.39,
+      "success": true
+    }
+  ],
+  "failed_results": [],
+  "exceptions": []
+}

@@ -450,7 +450,8 @@
     </div>
 
     <script>
-        const API_BASE = 'http://127.0.0.1:8000';
+        // Use current domain in production, localhost in development
+        const API_BASE = window.location.origin;
         let selectedFile = null;
         
         // File input handling

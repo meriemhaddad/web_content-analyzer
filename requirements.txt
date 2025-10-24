@@ -6,7 +6,6 @@ pydantic-settings>=2.1.0
 
 # Azure OpenAI and AI dependencies  
 openai>=1.3.0
-azure-openai>=1.0.0
 azure-identity>=1.15.0
 azure-core>=1.29.0
 
@@ -30,4 +29,4 @@ httpx>=0.25.0  # For testing FastAPI endpoints
 # Optional: Enhanced content analysis
 textstat>=0.7.3  # For readability analysis
 langdetect>=1.0.9  # For language detection
-dateutil>=2.8.2  # For date parsing
+python-dateutil>=2.8.2  # For date parsing

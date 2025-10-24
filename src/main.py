@@ -38,8 +38,8 @@ app = FastAPI(
 # Add CORS middleware
 allowed_origins = ["*"] if settings.environment == "development" else [
     "https://your-domain.com",  # Replace with your actual domain
+    "https://web-content-analyzer-production-88c3.up.railway.app",  # Railway domain
     "https://web-content-analyzer.onrender.com",  # Example: Render domain
-    "https://web-content-analyzer.railway.app",  # Example: Railway domain
 ]
 
 app.add_middleware(
@@ -52,6 +52,18 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api/v1")
+
+# Add bulk upload interface route (without prefix for easy access)
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+@app.get("/bulk-upload", response_class=FileResponse)
+async def get_bulk_upload_interface():
+    """Serve the bulk upload HTML interface."""
+    html_path = Path(__file__).parent.parent / "bulk_upload_interface.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Bulk upload interface not found")
+    return FileResponse(html_path)
 
 # Add exception handlers
 @app.exception_handler(HTTPException)

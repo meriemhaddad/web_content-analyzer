@@ -82,11 +82,13 @@ Batch Size: Unlimited (memory permitting)
 | **Storage** | Minimal (stateless app) | Free tier sufficient |
 
 ### **Azure OpenAI Costs** (Your Main Expense)
-| **Usage Level** | **Monthly URLs** | **Estimated Cost** | **Cost Per URL** |
-|----------------|------------------|-------------------|------------------|
-| **Light** | 1,000-5,000 | $10-25 | ~$0.005-0.01 |
-| **Medium** | 5,000-20,000 | $25-100 | ~$0.003-0.008 |
-| **Heavy** | 20,000+ | $100+ | ~$0.002-0.005 |
+| **Usage Level** | **Monthly URLs** | **API Calls** | **Estimated Cost** | **Cost Per URL** |
+|----------------|------------------|---------------|-------------------|------------------|
+| **Light** | 1,000-5,000 | 1,000-5,000 | $5-25 | ~$0.005-0.01 |
+| **Medium** | 5,000-20,000 | 5,000-20,000 | $25-100 | ~$0.003-0.008 |
+| **Heavy** | 20,000+ | 20,000+ | $100+ | ~$0.002-0.005 |
+
+**Note**: Each URL analysis = 1 Azure OpenAI API call (very efficient!)
 
 ---
 

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     
     # Environment settings
     environment: str = "development"  # development, staging, production
+    env: str = "development"  # Alternative field name for Railway ENV variable
     
     # Server settings
     host: str = "127.0.0.1"

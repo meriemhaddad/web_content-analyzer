@@ -2,6 +2,7 @@
 FastAPI application entry point for Web Content Analysis Agent.
 """
 
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -25,18 +26,21 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down Web Content Analysis Agent...")
 
+# Get environment setting (Railway uses ENV, settings uses environment)
+environment = os.getenv("ENV", settings.environment)
+
 # Create FastAPI application
 app = FastAPI(
     title="Web Content Analysis Agent",
     description="Advanced semantic analysis and categorization of web content using Azure OpenAI GPT-4o",
     version="1.0.0",
-    docs_url="/docs" if settings.environment != "production" else None,
-    redoc_url="/redoc" if settings.environment != "production" else None,
+    docs_url="/docs" if environment != "production" else None,
+    redoc_url="/redoc" if environment != "production" else None,
     lifespan=lifespan
 )
 
 # Add CORS middleware
-allowed_origins = ["*"] if settings.environment == "development" else [
+allowed_origins = ["*"] if environment == "development" else [
     "https://your-domain.com",  # Replace with your actual domain
     "https://web-content-analyzer-production-88c3.up.railway.app",  # Railway domain
     "https://web-content-analyzer.onrender.com",  # Example: Render domain

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 from src.api.endpoints import router
+from src.api.discovery_endpoints import router as discovery_router
 from src.config.settings import get_settings
 
 # Configure logging
@@ -56,6 +57,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api/v1")
+app.include_router(discovery_router)  # Microsoft Advertising discovery endpoints
 
 # Add bulk upload interface route (without prefix for easy access)
 from fastapi.responses import FileResponse
@@ -67,7 +69,14 @@ async def get_bulk_upload_interface():
     html_path = Path(__file__).parent.parent / "bulk_upload_interface.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Bulk upload interface not found")
-    return FileResponse(html_path)
+    
+    # Add cache control headers to prevent browser caching
+    from fastapi.responses import FileResponse as FR
+    response = FR(html_path)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # Add exception handlers
 @app.exception_handler(HTTPException)
@@ -75,14 +84,17 @@ async def http_exception_handler(request, exc):
     """Handle HTTP exceptions."""
     from fastapi.responses import JSONResponse
     from src.models.responses import ErrorResponse
+    import json
+    
+    error_response = ErrorResponse(
+        error="HTTP_ERROR",
+        message=exc.detail,
+        details={"status_code": exc.status_code}
+    )
     
     return JSONResponse(
         status_code=exc.status_code,
-        content=ErrorResponse(
-            error="HTTP_ERROR",
-            message=exc.detail,
-            details={"status_code": exc.status_code}
-        ).model_dump()
+        content=json.loads(error_response.model_dump_json())
     )
 
 @app.exception_handler(Exception)
@@ -90,6 +102,7 @@ async def general_exception_handler(request, exc):
     """Handle general exceptions."""
     from fastapi.responses import JSONResponse
     from src.models.responses import ErrorResponse
+    import json
     
     logger.error(f"Unhandled exception: {str(exc)}")
     
@@ -102,7 +115,7 @@ async def general_exception_handler(request, exc):
     
     return JSONResponse(
         status_code=500,
-        content=error_response.model_dump(mode='json')
+        content=json.loads(error_response.model_dump_json())
     )
 
 @app.get("/")

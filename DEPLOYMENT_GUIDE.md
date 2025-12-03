@@ -2,45 +2,36 @@
 
 ## 🚀 Deploy Your Web Content Analysis Agent
 
-### **Quick Deploy Options:**
 
-## 1. 🚂 Railway (Easiest - Recommended)
+### **Production Deployment: Azure Container Apps (Recommended)**
 
-1. **Push to GitHub**:
+1. **Build and Push Image**:
    ```bash
-   git add .
-   git commit -m "Production ready"
-   git push origin main
+   # Build Docker image
+   docker build -t web-content-analyzer .
+   # Tag for Azure Container Registry
+   docker tag web-content-analyzer your-registry.azurecr.io/web-content-analyzer:latest
+   # Push to registry
+   docker push your-registry.azurecr.io/web-content-analyzer:latest
    ```
 
-2. **Deploy to Railway**:
-   - Go to [railway.app](https://railway.app)
-   - Click "Deploy from GitHub repo"
-   - Select your repository
-   - Railway will detect `railway.toml` automatically
-
-3. **Set Environment Variables**:
+2. **Deploy to Azure**:
+   ```bash
+   # Create resource group
+   az group create --name rg-web-analyzer --location eastus
+   # Create container app environment
+   az containerapp env create --name env-web-analyzer --resource-group rg-web-analyzer --location eastus
+   # Deploy container app
+   az containerapp create \
+     --name web-content-analyzer \
+     --resource-group rg-web-analyzer \
+     --environment env-web-analyzer \
+     --image your-registry.azurecr.io/web-content-analyzer:latest \
+     --target-port 8000 \
+     --ingress external \
+     --min-replicas 1 \
+     --max-replicas 3
    ```
-   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-   AZURE_OPENAI_API_KEY=your-api-key
-   AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
-   ENV=production
-   ```
-
-4. **Access your app**: Railway provides a public URL
-
-## 2. 🎨 Render (Free Tier Available)
-
-1. **Connect GitHub**:
-   - Go to [render.com](https://render.com)
-   - Connect your GitHub repository
-   - Select "Web Service"
-
-2. **Configure**:
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `uvicorn src.main:app --host 0.0.0.0 --port $PORT`
-
-3. **Environment Variables** (same as Railway)
 
 ## 3. ☁️ Azure Container Apps (Production Scale)
 
@@ -98,14 +89,9 @@ docker-compose up --build
 
 ## 🌐 **Custom Domain Setup**
 
-### Railway:
-1. Go to Settings → Domains
-2. Add your custom domain
-3. Update DNS CNAME to point to Railway
 
-### Render:
-1. Go to Settings → Custom Domains
-2. Add domain and follow DNS instructions
+### Custom Domain Setup (Azure):
+See Azure documentation for [custom domain setup](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains).
 
 ## 📊 **Monitoring**
 
@@ -116,21 +102,12 @@ Add these endpoints to your monitoring:
 
 ## 🚀 **Scaling Considerations**
 
-- **Railway**: Automatically scales, usage-based pricing
-- **Render**: Free tier limited, paid plans scale
 - **Azure**: Full control, enterprise scaling
 
 ## 📝 **Team Access**
 
-Once deployed, share the public URL:
-- `https://your-app-name.railway.app`
-- `https://your-app-name.onrender.com`
-- `https://your-domain.com`
 
-Your team can access:
-- `/api/v1/bulk-upload` - Web interface
-- `/api/v1/docs` - API documentation (dev only)
-- API endpoints for integration
+Once deployed, share your Azure Container App public URL with your team.
 
 ---
 

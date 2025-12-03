@@ -51,6 +51,9 @@ class ContentAnalysisEngine:
         start_time = time.time()
         
         try:
+            # Normalize URL - add https:// if missing
+            url = self._normalize_url(url)
+            
             # Step 1: Fetch content using MCP client
             async with MCPFetchClient() as mcp_client:
                 fetch_result = await mcp_client.fetch_content(url)
@@ -107,6 +110,26 @@ class ContentAnalysisEngine:
                 category_confidence=0.0,
                 key_insights=[f"Error: {str(e)}"]
             )
+    
+    def _normalize_url(self, url: str) -> str:
+        """
+        Normalize URL by adding https:// if no scheme is present.
+        
+        Args:
+            url: URL string to normalize
+            
+        Returns:
+            Normalized URL with scheme
+        """
+        url = url.strip()
+        
+        # Check if URL has a scheme (http:// or https://)
+        if not url.startswith(('http://', 'https://')):
+            # Add https:// by default
+            url = f'https://{url}'
+            logger.info(f"Added https:// scheme to URL: {url}")
+        
+        return url
     
     async def batch_analyze_urls(
         self,
@@ -320,7 +343,8 @@ class ContentAnalysisEngine:
                 metadata=metadata or ContentMetadata(),
                 content_quality_score=ai_analysis.get("content_quality_score", 0.0),
                 readability_score=ai_analysis.get("readability_score"),
-                processing_time_seconds=processing_time
+                processing_time_seconds=processing_time,
+                token_usage=ai_analysis.get("_token_usage")  # Extract token usage for cost tracking
             )
             
         except Exception as e:

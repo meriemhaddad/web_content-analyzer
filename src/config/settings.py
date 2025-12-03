@@ -36,12 +36,20 @@ class Settings(BaseSettings):
     # MCP Fetch server settings
     mcp_server_url: Optional[str] = None
     
+    # Microsoft Bing Search API settings
+    bing_search_api_key: Optional[str] = None
+    bing_custom_search_id: Optional[str] = None
+    
+    # Azure Content Moderator settings (for brand safety)
+    azure_content_moderator_endpoint: Optional[str] = None
+    azure_content_moderator_key: Optional[str] = None
+    
     # Content analysis settings
     max_content_length: int = 50000  # Maximum content length to analyze
     analysis_timeout: int = 30  # Timeout in seconds for analysis
     
     # Batch processing settings
-    max_batch_size: int = 10
+    max_batch_size: int = 1000
     batch_timeout: int = 300  # 5 minutes
     
     class Config:

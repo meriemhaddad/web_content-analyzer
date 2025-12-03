@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import time
 from datetime import datetime
+import os
 
 from src.models.requests import URLAnalysisRequest, BatchAnalysisRequest
 from src.models.responses import (
@@ -26,6 +27,32 @@ from src.config.settings import get_settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Log file for tracking analysis runs
+LOG_FILE = "analysis_runs.csv"
+
+def log_analysis_run(total_urls: int, successful: int, cost_usd: float):
+    """Log analysis run metrics to CSV file."""
+    try:
+        file_exists = os.path.exists(LOG_FILE)
+        
+        with open(LOG_FILE, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            
+            # Write header if file is new
+            if not file_exists:
+                writer.writerow(['Timestamp', 'Total URLs', 'Success Rate (%)', 'OpenAI Cost (USD)'])
+            
+            # Calculate success rate
+            success_rate = (successful / total_urls * 100) if total_urls > 0 else 0
+            
+            # Write metrics
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            writer.writerow([timestamp, total_urls, f"{success_rate:.1f}", f"{cost_usd:.4f}"])
+            
+        logger.info(f"Logged analysis run: {total_urls} URLs, {success_rate:.1f}% success, ${cost_usd:.4f}")
+    except Exception as e:
+        logger.error(f"Failed to log analysis run: {e}")
 
 # Dependency to get content analyzer
 async def get_content_analyzer() -> ContentAnalysisEngine:
@@ -133,7 +160,7 @@ async def batch_analyze_urls(
         total_quality_score = 0.0
         
         for result in successful_results:
-            category = result.primary_category.value
+            category = result.primary_category  # primary_category is now a string, not an enum
             category_distribution[category] = category_distribution.get(category, 0) + 1
             total_quality_score += result.content_quality_score
         
@@ -150,6 +177,66 @@ async def batch_analyze_urls(
                 "error": result.key_insights[0] if result.key_insights else "Unknown error"
             })
         
+        # Calculate cost estimates from token usage (only for successful results)
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_tokens = 0
+        api_calls = 0
+        
+        logger.info(f"=== COST CALCULATION DEBUG ===")
+        logger.info(f"Calculating costs for {len(successful_results)} successful results")
+        
+        for idx, result in enumerate(successful_results):
+            logger.info(f"[{idx}] Checking result: {result.url[:60]}")
+            logger.info(f"    token_usage type: {type(result.token_usage)}")
+            logger.info(f"    token_usage value: {result.token_usage}")
+            
+            # Extract token usage from token_usage field if present
+            if result.token_usage:
+                try:
+                    prompt = result.token_usage.get('prompt_tokens', 0) if isinstance(result.token_usage, dict) else result.token_usage.prompt_tokens
+                    completion = result.token_usage.get('completion_tokens', 0) if isinstance(result.token_usage, dict) else result.token_usage.completion_tokens
+                    total = result.token_usage.get('total_tokens', 0) if isinstance(result.token_usage, dict) else result.token_usage.total_tokens
+                    
+                    total_prompt_tokens += prompt
+                    total_completion_tokens += completion
+                    total_tokens += total
+                    api_calls += 1
+                    logger.info(f"    ✓ Added: prompt={prompt}, completion={completion}, total={total}")
+                except Exception as e:
+                    logger.error(f"    ✗ Error extracting tokens: {e}")
+            else:
+                logger.warning(f"    ✗ No token_usage found")
+        
+        logger.info(f"=== FINAL TOTALS ===")
+        logger.info(f"Total tokens: {total_tokens} (input: {total_prompt_tokens}, output: {total_completion_tokens}) from {api_calls} API calls")
+        
+        # GPT-4o pricing (as of 2024)
+        pricing_per_1k_input = 0.0025  # $0.0025 per 1K input tokens
+        pricing_per_1k_output = 0.01   # $0.01 per 1K output tokens
+        
+        input_cost = (total_prompt_tokens / 1000) * pricing_per_1k_input
+        output_cost = (total_completion_tokens / 1000) * pricing_per_1k_output
+        estimated_cost = input_cost + output_cost
+        
+        # Create cost estimate object
+        from src.models.responses import CostEstimate
+        cost_estimate = CostEstimate(
+            total_tokens=total_tokens,
+            input_tokens=total_prompt_tokens,
+            output_tokens=total_completion_tokens,
+            estimated_cost_usd=round(estimated_cost, 4),
+            pricing_per_1k_input=pricing_per_1k_input,
+            pricing_per_1k_output=pricing_per_1k_output,
+            api_calls=api_calls
+        ) if total_tokens > 0 else None
+        
+        # Calculate average time per URL
+        average_time_per_url = (
+            processing_time / len(successful_results)
+            if successful_results else None
+        )
+        
         batch_result = BatchAnalysisResult(
             total_urls=len(request.urls),
             successful_analyses=len(successful_results),
@@ -158,10 +245,23 @@ async def batch_analyze_urls(
             errors=errors,
             category_distribution=category_distribution,
             average_quality_score=average_quality,
-            processing_time_seconds=processing_time
+            processing_time_seconds=processing_time,
+            cost_estimate=cost_estimate,
+            average_time_per_url=average_time_per_url
         )
         
+        logger.info(f"=== BATCH RESULT DEBUG ===")
         logger.info(f"Batch analysis completed: {len(successful_results)}/{len(request.urls)} successful")
+        logger.info(f"cost_estimate object: {cost_estimate}")
+        logger.info(f"batch_result.cost_estimate: {batch_result.cost_estimate}")
+        
+        # Log analysis run metrics
+        log_analysis_run(
+            total_urls=len(request.urls),
+            successful=len(successful_results),
+            cost_usd=estimated_cost if cost_estimate else 0.0
+        )
+        
         return batch_result
         
     except HTTPException:
@@ -456,6 +556,50 @@ async def upload_urls_advanced(
         quality_scores = [r.content_quality_score for r in successful_results if r.content_quality_score > 0]
         avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0
         
+        # Calculate cost estimates from token usage (only for successful results)
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_tokens = 0
+        api_calls = 0
+        
+        for result in successful_results:
+            if result.token_usage:
+                try:
+                    prompt = result.token_usage.get('prompt_tokens', 0) if isinstance(result.token_usage, dict) else getattr(result.token_usage, 'prompt_tokens', 0)
+                    completion = result.token_usage.get('completion_tokens', 0) if isinstance(result.token_usage, dict) else getattr(result.token_usage, 'completion_tokens', 0)
+                    total = result.token_usage.get('total_tokens', 0) if isinstance(result.token_usage, dict) else getattr(result.token_usage, 'total_tokens', 0)
+                    
+                    total_prompt_tokens += prompt
+                    total_completion_tokens += completion
+                    total_tokens += total
+                    api_calls += 1
+                except Exception as e:
+                    logger.warning(f"Could not extract token usage from result: {e}")
+        
+        # GPT-4o pricing
+        pricing_per_1k_input = 0.0025
+        pricing_per_1k_output = 0.01
+        
+        input_cost = (total_prompt_tokens / 1000) * pricing_per_1k_input
+        output_cost = (total_completion_tokens / 1000) * pricing_per_1k_output
+        estimated_cost = input_cost + output_cost
+        
+        # Create cost estimate object
+        from src.models.responses import CostEstimate
+        cost_estimate = CostEstimate(
+            total_tokens=total_tokens,
+            input_tokens=total_prompt_tokens,
+            output_tokens=total_completion_tokens,
+            estimated_cost_usd=round(estimated_cost, 4),
+            pricing_per_1k_input=pricing_per_1k_input,
+            pricing_per_1k_output=pricing_per_1k_output,
+            api_calls=api_calls
+        ) if total_tokens > 0 else None
+        
+        # Calculate total processing time and average per URL
+        total_processing_time = sum(r.processing_time_seconds for r in individual_results)
+        average_time_per_url = total_processing_time / len(successful_results) if successful_results else None
+        
         # Build batch result
         batch_result = BatchAnalysisResult(
             total_urls=len(urls),
@@ -465,10 +609,20 @@ async def upload_urls_advanced(
             errors=[{"url": r.url, "error": getattr(r, 'error', 'Unknown error')} for r in failed_results],
             category_distribution=category_dist,
             average_quality_score=avg_quality,
-            processing_time_seconds=sum(r.processing_time_seconds for r in individual_results)
+            processing_time_seconds=total_processing_time,
+            cost_estimate=cost_estimate,
+            average_time_per_url=average_time_per_url
         )
         
-        logger.info(f"Advanced analysis completed: {len(successful_results)}/{len(urls)} successful")
+        logger.info(f"Advanced analysis completed: {len(successful_results)}/{len(urls)} successful, cost: ${estimated_cost:.4f}" if cost_estimate else f"Advanced analysis completed: {len(successful_results)}/{len(urls)} successful")
+        
+        # Log analysis run metrics
+        log_analysis_run(
+            total_urls=len(urls),
+            successful=len(successful_results),
+            cost_usd=estimated_cost if cost_estimate else 0.0
+        )
+        
         return batch_result
         
     except Exception as e:

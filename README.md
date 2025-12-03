@@ -11,7 +11,7 @@ An advanced web content analysis agent using FastAPI, Azure OpenAI GPT-4o, and M
 - **Copy/Paste Interface**: Web interface for easy team collaboration
 - **Concurrent Processing**: 1-10 URLs analyzed simultaneously for efficiency
 - **MCP Integration**: Uses Model Context Protocol Fetch server for reliable web content retrieval
-- **Production Ready**: Deployed on Railway with automatic HTTPS and scaling
+- **Production Ready**: Deployable on Azure with enterprise security and scaling
 - **REST API**: FastAPI-based API for easy integration
 
 ## 📊 Usage Limits & Capabilities
@@ -21,8 +21,10 @@ For detailed information about processing limits, costs, and performance capabil
 
 ## 🌐 Live Deployment
 
-**Production URL**: `https://web-content-analyzer-production-88c3.up.railway.app`
-**Bulk Upload Interface**: `https://web-content-analyzer-production-88c3.up.railway.app/bulk-upload`
+
+**Production Deployment:** See the [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for Azure deployment instructions.
+
+**Bulk Upload Interface:** `/bulk-upload` (see deployment guide for your deployed URL)
 
 ## Project Structure
 
@@ -164,21 +166,13 @@ This app is ready for production deployment! Choose from these options:
 
 ### **Quick Deploy (Recommended for Teams)**
 
-#### 🚂 Railway (Easiest)
-1. Push to GitHub: `git push origin main`
-2. Connect at [railway.app](https://railway.app)
-3. Set environment variables
-4. Deploy automatically!
 
-#### 🎨 Render (Free Tier)
-1. Connect GitHub repo at [render.com](https://render.com)
-2. Configure environment variables
-3. Deploy with zero config
-
-#### ☁️ Azure Container Apps (Enterprise)
+### ☁️ Azure Container Apps (Recommended)
 - Full Azure integration
 - Auto-scaling
 - Enterprise security
+
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for full Azure deployment steps.
 
 ### **Environment Variables for Production:**
 ```bash

@@ -33,6 +33,17 @@ class SemanticAnalysis(BaseModel):
     themes: List[str] = Field(default_factory=list, description="Major themes")
     content_structure: Dict[str, Any] = Field(default_factory=dict, description="Content structure analysis")
     semantic_keywords: List[str] = Field(default_factory=list, description="Semantically relevant keywords")
+
+class CostEstimate(BaseModel):
+    """Azure OpenAI cost estimation."""
+    total_tokens: int = Field(..., description="Total tokens used (input + output)")
+    input_tokens: int = Field(..., description="Input tokens used")
+    output_tokens: int = Field(..., description="Output tokens generated")
+    estimated_cost_usd: float = Field(..., description="Estimated cost in USD")
+    model: str = Field(default="gpt-4o", description="Model used")
+    pricing_per_1k_input: float = Field(default=0.0025, description="Cost per 1K input tokens")
+    pricing_per_1k_output: float = Field(default=0.01, description="Cost per 1K output tokens")
+    api_calls: int = Field(default=1, description="Number of API calls made")
     
 class ContentAnalysisResult(BaseModel):
     """Complete content analysis result for a single URL."""
@@ -66,6 +77,9 @@ class ContentAnalysisResult(BaseModel):
     # Processing info
     processing_time_seconds: float = Field(..., description="Processing time in seconds")
     model_version: str = Field(default="gpt-4o", description="AI model used for analysis")
+    
+    # Token usage for cost tracking (included but not prominent in docs)
+    token_usage: Optional[Dict[str, int]] = Field(None, description="Token usage for cost estimation")
 
 class BatchAnalysisResult(BaseModel):
     """Batch analysis result."""
@@ -81,11 +95,16 @@ class BatchAnalysisResult(BaseModel):
     category_distribution: Dict[str, int] = Field(default_factory=dict, description="Distribution of categories")
     average_quality_score: Optional[float] = Field(None, description="Average content quality score")
     processing_time_seconds: float = Field(..., description="Total processing time")
+    average_time_per_url: Optional[float] = Field(None, description="Average processing time per URL")
+    
+    # Cost estimation
+    cost_estimate: Optional[CostEstimate] = Field(None, description="Azure OpenAI cost estimation")
     
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Batch processing timestamp")
 
 class HealthResponse(BaseModel):
     """Health check response."""
+    
     status: str = Field(..., description="Service status")
     service: str = Field(..., description="Service name")
     version: str = Field(..., description="Service version")
@@ -93,6 +112,7 @@ class HealthResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """Error response model."""
+    
     error: str = Field(..., description="Error type")
     message: str = Field(..., description="Error message")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")

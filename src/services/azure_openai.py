@@ -130,6 +130,18 @@ class AzureOpenAIService:
             # Parse the response
             analysis_result = json.loads(response.choices[0].message.content)
             
+            # Add token usage information for cost tracking
+            if hasattr(response, 'usage') and response.usage:
+                token_info = {
+                    'total_tokens': response.usage.total_tokens,
+                    'prompt_tokens': response.usage.prompt_tokens,
+                    'completion_tokens': response.usage.completion_tokens
+                }
+                analysis_result['_token_usage'] = token_info
+                logger.info(f"Token usage captured for {url}: {token_info}")
+            else:
+                logger.warning(f"No token usage information available in response for {url}")
+            
             logger.info(f"Successfully analyzed content for URL: {url}")
             return analysis_result
             

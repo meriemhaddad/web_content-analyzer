@@ -278,6 +278,61 @@
             border: 1px solid #c3e6cb;
             color: #155724;
             padding: 12px;
+        }
+        
+        .export-section {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .export-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .export-button.json {
+            background-color: #17a2b8;
+            color: white;
+        }
+        
+        .export-button.json:hover {
+            background-color: #138496;
+        }
+        
+        .export-button.csv {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .export-button.csv:hover {
+            background-color: #218838;
+        }
+        
+        .export-button.excel {
+            background-color: #20c997;
+            color: white;
+        }
+        
+        .export-button.excel:hover {
+            background-color: #1aa179;
             border-radius: 6px;
             margin: 10px 0;
         }
@@ -317,7 +372,7 @@
                 <strong>Supported formats:</strong><br>
                 • CSV: url,description (header optional)<br>
                 • TXT: One URL per line<br>
-                • Maximum: 50 URLs per file
+                • Maximum: 500 URLs per file
             </div>
         </div>
 
@@ -338,8 +393,9 @@
                 <strong>Instructions:</strong><br>
                 • Paste one URL per line<br>
                 • Empty lines will be ignored<br>
-                • Maximum: 50 URLs<br>
-                • URLs should start with http:// or https://
+                • Maximum: 1000 URLs<br>
+                • URLs can start with or without http:// or https://<br>
+                • Example: example.com or https://example.com
             </div>
         </div>
         
@@ -419,6 +475,25 @@
                     <!-- Stats will be populated here -->
                 </div>
                 
+                <!-- Export Section -->
+                <div class="export-section" id="exportSection" style="display: none;">
+                    <div>
+                        <strong>📥 Export Results:</strong>
+                        <span style="color: #666; font-size: 14px; margin-left: 10px;">Download analysis in your preferred format</span>
+                    </div>
+                    <div class="export-buttons">
+                        <button class="export-button json" onclick="exportResults('json')">
+                            📄 JSON
+                        </button>
+                        <button class="export-button csv" onclick="exportResults('csv')">
+                            📊 CSV
+                        </button>
+                        <button class="export-button excel" onclick="exportResults('excel')">
+                            📈 Excel
+                        </button>
+                    </div>
+                </div>
+                
                 <!-- Error Tips Section -->
                 <div id="errorTips" style="display: none; margin: 20px 0; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px;">
                     <h4 style="margin: 0 0 10px 0; color: #856404;">💡 Common Issues & Solutions</h4>
@@ -491,22 +566,32 @@
                 .filter(url => url.length > 0);
             
             const urlCountElement = document.getElementById('urlCount');
-            const count = urls.length;
+            const totalCount = urls.length;
             
-            if (count === 0) {
+            if (totalCount === 0) {
                 urlCountElement.innerHTML = '';
-            } else if (count > 50) {
-                urlCountElement.innerHTML = `<span style="color: #dc3545;"><strong>${count} URLs</strong> - Maximum 50 allowed</span>`;
-            } else {
-                const validUrls = urls.filter(url => /^https?:\/\/.+/i.test(url));
-                const invalidCount = count - validUrls.length;
-                
-                if (invalidCount > 0) {
-                    urlCountElement.innerHTML = `<span style="color: #dc3545;"><strong>${count} URLs</strong> (${invalidCount} invalid format)</span>`;
-                } else {
-                    urlCountElement.innerHTML = `<span style="color: #28a745;"><strong>${count} URLs</strong> ready for analysis</span>`;
-                }
+                return;
             }
+            
+            // Accept URLs with or without http/https scheme - backend will normalize
+            const validUrls = urls.filter(url => {
+                // Basic validation: must have at least a domain-like structure
+                return /^(https?:\/\/)?[a-zA-Z0-9][a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}/i.test(url);
+            });
+            const validCount = validUrls.length;
+            const invalidCount = totalCount - validCount;
+            
+            // Build status message
+            let message = '';
+            if (validCount > 1000) {
+                message = `<span style="color: #dc3545;"><strong>${validCount} valid URLs</strong> (${invalidCount} invalid) - Maximum 1000 allowed, will analyze first 1000</span>`;
+            } else if (invalidCount > 0) {
+                message = `<span style="color: #ff9800;"><strong>${validCount} valid URLs</strong> (${invalidCount} invalid will be skipped)</span>`;
+            } else {
+                message = `<span style="color: #28a745;"><strong>${validCount} URLs</strong> ready for analysis</span>`;
+            }
+            
+            urlCountElement.innerHTML = message;
         }
         
         function updateAnalyzeButton() {
@@ -522,7 +607,12 @@
                     .map(url => url.trim())
                     .filter(url => url.length > 0);
                 
-                button.disabled = urls.length === 0 || urls.length > 50;
+                // Only count valid URLs
+                const validUrls = urls.filter(url => {
+                    return /^(https?:\/\/)?[a-zA-Z0-9][a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}/i.test(url);
+                });
+                
+                button.disabled = validUrls.length === 0;
             }
         }
         
@@ -591,20 +681,35 @@
                     return;
                 }
                 
-                if (urls.length > 50) {
-                    alert('Maximum 50 URLs allowed. Please remove some URLs.');
-                    return;
-                }
-                
-                // Validate URLs
-                const urlPattern = /^https?:\/\/.+/i;
+                // Filter to only valid URLs - accept with or without http/https
+                const urlPattern = /^(https?:\/\/)?[a-zA-Z0-9][a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}/i;
+                const validUrls = urls.filter(url => urlPattern.test(url));
                 const invalidUrls = urls.filter(url => !urlPattern.test(url));
-                if (invalidUrls.length > 0) {
-                    alert(`Invalid URLs found:\n${invalidUrls.slice(0, 3).join('\n')}${invalidUrls.length > 3 ? '\n...' : ''}\n\nPlease ensure all URLs start with http:// or https://`);
+                
+                if (validUrls.length === 0) {
+                    alert('No valid URLs found. Please ensure URLs are valid domain names (e.g., example.com or https://example.com)');
                     return;
                 }
                 
-                urlsToAnalyze = urls;
+                // Limit to 1000 valid URLs
+                const urlsToProcess = validUrls.slice(0, 1000);
+                const skippedCount = validUrls.length - urlsToProcess.length;
+                
+                // Inform user about invalid and excess URLs
+                let message = '';
+                if (invalidUrls.length > 0 && skippedCount > 0) {
+                    message = `Processing ${urlsToProcess.length} valid URLs.\n${invalidUrls.length} invalid URLs will be skipped.\n${skippedCount} URLs exceed the 1000 limit and will be skipped.`;
+                } else if (invalidUrls.length > 0) {
+                    message = `Processing ${urlsToProcess.length} valid URLs.\n${invalidUrls.length} invalid URLs will be skipped.`;
+                } else if (skippedCount > 0) {
+                    message = `Processing first ${urlsToProcess.length} URLs.\n${skippedCount} URLs exceed the 1000 limit and will be skipped.`;
+                }
+                
+                if (message && !confirm(message + '\n\nContinue?')) {
+                    return;
+                }
+                
+                urlsToAnalyze = urlsToProcess;
             }
             
             // Show results section and loading
@@ -700,11 +805,46 @@
                     <div class="stat-label">Total Time</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${(data.processing_time_seconds / data.total_urls).toFixed(1)}s</div>
-                    <div class="stat-label">Avg Time</div>
+                    <div class="stat-value">${data.average_time_per_url ? data.average_time_per_url.toFixed(1) + 's' : 'N/A'}</div>
+                    <div class="stat-label">Avg Time/URL</div>
                 </div>
             `;
-            document.getElementById('resultsSummary').innerHTML = summaryHtml;
+            
+            // Add cost estimate section if available
+            let costHtml = '';
+            console.log('Cost estimate data:', data.cost_estimate);
+            if (data.cost_estimate) {
+                const cost = data.cost_estimate;
+                console.log('Rendering cost estimate:', cost);
+                costHtml = `
+                    <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 16px;">💰 Azure OpenAI Cost Estimate</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                            <div>
+                                <div style="font-size: 20px; font-weight: bold;">$${cost.estimated_cost_usd.toFixed(4)}</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Total Cost</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 20px; font-weight: bold;">${cost.total_tokens.toLocaleString()}</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Total Tokens</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 14px;">${cost.input_tokens.toLocaleString()} input</div>
+                                <div style="font-size: 14px;">${cost.output_tokens.toLocaleString()} output</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 14px;">$${(cost.estimated_cost_usd / data.successful_analyses).toFixed(4)}</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Cost per URL</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 11px; opacity: 0.8;">
+                            Pricing: $${cost.pricing_per_1k_input}/1K input tokens, $${cost.pricing_per_1k_output}/1K output tokens | Model: ${cost.model}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('resultsSummary').innerHTML = summaryHtml + costHtml;
             
             // Show error tips if there are failures
             if (data.failed_analyses > 0) {
@@ -751,6 +891,224 @@
                 
                 tableBody.appendChild(row);
             });
+            
+            // Show export section
+            document.getElementById('exportSection').style.display = 'flex';
+            
+            // Store results globally for export
+            window.analysisResults = data;
+        }
+        
+        // Export functionality
+        function exportResults(format) {
+            if (!window.analysisResults) {
+                alert('No results to export');
+                return;
+            }
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+            const filename = `analysis_results_${timestamp}`;
+            
+            switch(format) {
+                case 'json':
+                    exportJSON(filename);
+                    break;
+                case 'csv':
+                    exportCSV(filename);
+                    break;
+                case 'excel':
+                    exportExcel(filename);
+                    break;
+            }
+        }
+        
+        function exportJSON(filename) {
+            const data = JSON.stringify(window.analysisResults, null, 2);
+            downloadFile(data, `${filename}.json`, 'application/json');
+        }
+        
+        function exportCSV(filename) {
+            const results = window.analysisResults.results;
+            const data = window.analysisResults;
+            
+            // Add cost summary at the top
+            let csvContent = '=== ANALYSIS SUMMARY ===\n';
+            csvContent += `Total URLs,${data.total_urls}\n`;
+            csvContent += `Successful,${data.successful_analyses}\n`;
+            csvContent += `Failed,${data.failed_analyses}\n`;
+            csvContent += `Processing Time,${data.processing_time_seconds.toFixed(2)}s\n`;
+            if (data.cost_estimate) {
+                csvContent += `Total Cost,$${data.cost_estimate.estimated_cost_usd.toFixed(4)}\n`;
+                csvContent += `Total Tokens,${data.cost_estimate.total_tokens}\n`;
+                csvContent += `Cost per URL,$${(data.cost_estimate.estimated_cost_usd / data.successful_analyses).toFixed(4)}\n`;
+            }
+            csvContent += '\n=== DETAILED RESULTS ===\n';
+            
+            // CSV Headers
+            const headers = [
+                'URL',
+                'Status',
+                'Primary Category',
+                'Secondary Categories',
+                'Category Confidence',
+                'Sentiment',
+                'Sentiment Confidence',
+                'Content Summary',
+                'Keywords',
+                'Content Quality Score',
+                'Readability Score',
+                'Word Count',
+                'Processing Time (s)',
+                'Error Message'
+            ];
+            
+            // Build CSV rows
+            const rows = results.map(result => {
+                return [
+                    escapeCsvValue(result.url),
+                    result.status,
+                    escapeCsvValue(result.primary_category || ''),
+                    escapeCsvValue(result.secondary_categories ? result.secondary_categories.join('; ') : ''),
+                    result.category_confidence || '',
+                    result.sentiment ? result.sentiment.overall : '',
+                    result.sentiment ? result.sentiment.confidence : '',
+                    escapeCsvValue(result.content_summary || ''),
+                    escapeCsvValue(result.semantic_analysis && result.semantic_analysis.semantic_keywords ? 
+                        result.semantic_analysis.semantic_keywords.join('; ') : ''),
+                    result.content_quality_score || '',
+                    result.readability_score || '',
+                    result.metadata ? result.metadata.word_count : '',
+                    result.processing_time_seconds || '',
+                    escapeCsvValue(result.error_message || '')
+                ].join(',');
+            });
+            
+            csvContent += [headers.join(','), ...rows].join('\n');
+            downloadFile(csvContent, `${filename}.csv`, 'text/csv');
+        }
+        
+        function exportExcel(filename) {
+            // For Excel, we'll create an HTML table that Excel can open
+            const results = window.analysisResults.results;
+            
+            let html = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+                      xmlns:x="urn:schemas-microsoft-com:office:excel" 
+                      xmlns="http://www.w3.org/TR/REC-html40">
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #4CAF50; color: white; }
+                        .success { background-color: #d4edda; }
+                        .error { background-color: #f8d7da; }
+                    </style>
+                </head>
+                <body>
+                    <h2>Content Analysis Results - ${new Date().toLocaleDateString()}</h2>
+                    <table>
+                        <tr>
+                            <th>URL</th>
+                            <th>Status</th>
+                            <th>Primary Category</th>
+                            <th>Category Confidence</th>
+                            <th>Sentiment</th>
+                            <th>Sentiment Confidence</th>
+                            <th>Content Summary</th>
+                            <th>Keywords</th>
+                            <th>Quality Score</th>
+                            <th>Readability</th>
+                            <th>Word Count</th>
+                            <th>Processing Time</th>
+                        </tr>
+            `;
+            
+            results.forEach(result => {
+                const rowClass = result.status === 'success' ? 'success' : 'error';
+                html += `
+                    <tr class="${rowClass}">
+                        <td>${escapeHtml(result.url)}</td>
+                        <td>${result.status}</td>
+                        <td>${escapeHtml(result.primary_category || '')}</td>
+                        <td>${result.category_confidence ? (result.category_confidence * 100).toFixed(1) + '%' : ''}</td>
+                        <td>${result.sentiment ? result.sentiment.overall : ''}</td>
+                        <td>${result.sentiment ? (result.sentiment.confidence * 100).toFixed(1) + '%' : ''}</td>
+                        <td>${escapeHtml(result.content_summary || result.error_message || '')}</td>
+                        <td>${result.semantic_analysis && result.semantic_analysis.semantic_keywords ? 
+                            escapeHtml(result.semantic_analysis.semantic_keywords.join(', ')) : ''}</td>
+                        <td>${result.content_quality_score ? result.content_quality_score.toFixed(2) : ''}</td>
+                        <td>${result.readability_score ? result.readability_score.toFixed(1) : ''}</td>
+                        <td>${result.metadata ? result.metadata.word_count : ''}</td>
+                        <td>${result.processing_time_seconds ? result.processing_time_seconds.toFixed(2) + 's' : ''}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </table>
+                    <br>
+                    <h3>Summary Statistics</h3>
+                    <table style="width: auto; margin-bottom: 20px;">
+                        <tr><td><strong>Total URLs:</strong></td><td>${window.analysisResults.total_urls}</td></tr>
+                        <tr><td><strong>Successful:</strong></td><td>${window.analysisResults.successful_analyses}</td></tr>
+                        <tr><td><strong>Failed:</strong></td><td>${window.analysisResults.failed_analyses}</td></tr>
+                        <tr><td><strong>Success Rate:</strong></td><td>${((window.analysisResults.successful_analyses / window.analysisResults.total_urls) * 100).toFixed(1)}%</td></tr>
+                        <tr><td><strong>Total Processing Time:</strong></td><td>${window.analysisResults.processing_time_seconds.toFixed(2)}s</td></tr>
+                        <tr><td><strong>Average Time per URL:</strong></td><td>${window.analysisResults.average_time_per_url ? window.analysisResults.average_time_per_url.toFixed(2) + 's' : 'N/A'}</td></tr>
+            `;
+            
+            if (window.analysisResults.cost_estimate) {
+                const cost = window.analysisResults.cost_estimate;
+                html += `
+                        <tr style="background-color: #fffacd;"><td colspan="2"><strong>💰 Azure OpenAI Cost Analysis</strong></td></tr>
+                        <tr><td><strong>Total Cost:</strong></td><td style="color: #d32f2f; font-weight: bold;">$${cost.estimated_cost_usd.toFixed(4)}</td></tr>
+                        <tr><td><strong>Total Tokens:</strong></td><td>${cost.total_tokens.toLocaleString()}</td></tr>
+                        <tr><td><strong>Input Tokens:</strong></td><td>${cost.input_tokens.toLocaleString()}</td></tr>
+                        <tr><td><strong>Output Tokens:</strong></td><td>${cost.output_tokens.toLocaleString()}</td></tr>
+                        <tr><td><strong>Cost per URL:</strong></td><td>$${(cost.estimated_cost_usd / window.analysisResults.successful_analyses).toFixed(4)}</td></tr>
+                        <tr><td><strong>API Calls:</strong></td><td>${cost.api_calls}</td></tr>
+                        <tr><td><strong>Model:</strong></td><td>${cost.model}</td></tr>
+                        <tr><td><strong>Pricing:</strong></td><td>$${cost.pricing_per_1k_input}/1K input, $${cost.pricing_per_1k_output}/1K output</td></tr>
+                `;
+            }
+            
+            html += `
+                    </table>
+                </body>
+                </html>
+            `;
+            
+            downloadFile(html, `${filename}.xls`, 'application/vnd.ms-excel');
+        }
+        
+        function escapeCsvValue(value) {
+            if (value === null || value === undefined) return '';
+            const stringValue = String(value);
+            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                return '"' + stringValue.replace(/"/g, '""') + '"';
+            }
+            return stringValue;
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
         }
         
         // Initialize

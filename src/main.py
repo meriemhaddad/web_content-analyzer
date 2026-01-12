@@ -11,11 +11,17 @@ from src.api.endpoints import router
 from src.api.discovery_endpoints import router as discovery_router
 from src.config.settings import get_settings
 
-# Configure logging
+# Configure logging with forced flush for real-time output
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True  # Override any existing config
 )
+
+# Ensure all src loggers output to console
+for name in ['src', 'src.services', 'src.services.azure_openai', 'src.services.content_analyzer', 'src.api']:
+    logging.getLogger(name).setLevel(logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 settings = get_settings()

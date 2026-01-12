@@ -351,6 +351,9 @@
                 <button class="tab-button" onclick="switchTab('paste')" id="pasteTab">
                     📋 Copy & Paste URLs
                 </button>
+                <button class="tab-button" onclick="switchTab('brandMatch')" id="brandMatchTab">
+                    🎯 Brand Match
+                </button>
             </div>
         </div>
 
@@ -372,7 +375,7 @@
                 <strong>Supported formats:</strong><br>
                 • CSV: url,description (header optional)<br>
                 • TXT: One URL per line<br>
-                • Maximum: 500 URLs per file
+                • Maximum: 10,000 URLs per file
             </div>
         </div>
 
@@ -393,24 +396,94 @@
                 <strong>Instructions:</strong><br>
                 • Paste one URL per line<br>
                 • Empty lines will be ignored<br>
-                • Maximum: 1000 URLs<br>
+                • Maximum: 10,000 URLs<br>
                 • URLs can start with or without http:// or https://<br>
                 • Example: example.com or https://example.com
             </div>
         </div>
+
+        <!-- Brand Match Section -->
+        <div class="upload-section" id="brandMatchSection" style="display: none;">
+            <h3>🎯 Brand Match - Find Relevant URLs</h3>
+            <p>Find URLs whose content best matches your brand or campaign criteria</p>
+            
+            <div style="margin-bottom: 20px;">
+                <label for="brandDescription" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                    📝 Describe what you're looking for:
+                </label>
+                <textarea 
+                    id="brandDescription" 
+                    placeholder="Example: Nike looking for new customers interested in running shoes, fitness lifestyle, and athletic performance. Target audience: 18-35 year olds interested in sports and health.&#10;&#10;Or simply: Technology blogs discussing AI and machine learning innovations"
+                    style="width: 100%; height: 120px; padding: 15px; border: 2px solid #007bff; border-radius: 6px; font-family: 'Segoe UI', sans-serif; font-size: 14px; resize: vertical; line-height: 1.5; background-color: #f8f9ff;"
+                ></textarea>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label for="brandUrlTextarea" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                    🔗 Paste URLs to analyze (one per line):
+                </label>
+                <textarea 
+                    id="brandUrlTextarea" 
+                    placeholder="Paste your URLs here, one per line:&#10;&#10;https://www.example1.com&#10;https://www.example2.com&#10;https://www.example3.com"
+                    style="width: 100%; height: 150px; padding: 15px; border: 2px solid #ddd; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; resize: vertical; line-height: 1.5;"
+                ></textarea>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                <div>
+                    <label for="relevanceThreshold" style="display: block; margin-bottom: 5px; font-size: 13px;">🎚️ Min Relevance Score:</label>
+                    <input type="range" id="relevanceThreshold" min="0" max="100" value="50" 
+                           style="width: 100%;" oninput="updateThresholdLabel(this.value)">
+                    <span id="thresholdLabel" style="font-size: 12px; color: #666;">50%</span>
+                </div>
+                <div>
+                    <label for="maxResults" style="display: block; margin-bottom: 5px; font-size: 13px;">📊 Max Results:</label>
+                    <input type="number" id="maxResults" class="number-input" min="1" max="1000" value="100" 
+                           style="width: 80px;">
+                </div>
+                <div>
+                    <label for="brandMaxConcurrent" style="display: block; margin-bottom: 5px; font-size: 13px;">⚡ Concurrent:</label>
+                    <input type="number" id="brandMaxConcurrent" class="number-input" min="1" max="10" value="3" 
+                           style="width: 60px;">
+                </div>
+            </div>
+            
+            <div id="brandUrlCount" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
+            
+            <div style="margin-top: 15px; font-size: 12px; color: #888; background: #e8f4fd; padding: 12px; border-radius: 6px; border-left: 4px solid #007bff;">
+                <strong>💡 How it works:</strong><br>
+                1. Describe your brand, campaign, or target audience in detail<br>
+                2. Paste URLs you want to filter/rank<br>
+                3. The AI will analyze each URL's content and score relevance to your criteria<br>
+                4. Get a ranked list of the most relevant URLs for your brand
+            </div>
+            
+            <button class="analyze-button" id="brandMatchButton" onclick="startBrandMatch()" style="margin-top: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                🎯 Find Matching URLs
+            </button>
+            
+            <!-- Brand Match Results Container -->
+            <div id="brandResultsContainer" class="results-container" style="display: none; margin-top: 20px;">
+                <div id="brandSummarySection" class="summary-section"></div>
+                <div id="brandResultsSection"></div>
+            </div>
+        </div>
         
-        <!-- Analysis Options -->
-        <div class="options-grid">
-            <div class="option-group">
+        <!-- Analysis Options (shown for file/paste tabs) -->
+        <div class="options-grid" id="standardOptionsGrid">
+            <div class="option-group" id="analysisOptionsGroup">
                 <h3>📊 Analysis Options</h3>
-                <div class="checkbox-group">
+                <div id="basicModeNote" style="display: block; font-size: 11px; color: #888; margin-bottom: 10px; padding: 8px; background: #fff3cd; border-radius: 4px; border-left: 3px solid #ffc107;">
+                    ⚡ <strong>Basic mode:</strong> Only Category & Summary are used. Other options apply to Comprehensive mode.
+                </div>
+                <div class="checkbox-group" id="analysisCheckboxes">
                     <div class="checkbox-item">
-                        <input type="checkbox" id="includeSentiment" checked>
-                        <label for="includeSentiment">Sentiment Analysis</label>
+                        <input type="checkbox" id="includeSentiment" disabled>
+                        <label for="includeSentiment" style="color: #999;">Sentiment Analysis</label>
                     </div>
                     <div class="checkbox-item">
-                        <input type="checkbox" id="includeEntities" checked>
-                        <label for="includeEntities">Entity Extraction</label>
+                        <input type="checkbox" id="includeEntities" disabled>
+                        <label for="includeEntities" style="color: #999;">Entity Extraction</label>
                     </div>
                     <div class="checkbox-item">
                         <input type="checkbox" id="includeSummary" checked>
@@ -421,8 +494,8 @@
                         <label for="includeCategory">Category Analysis</label>
                     </div>
                     <div class="checkbox-item">
-                        <input type="checkbox" id="includeKeywords" checked>
-                        <label for="includeKeywords">Keyword Extraction</label>
+                        <input type="checkbox" id="includeKeywords" disabled>
+                        <label for="includeKeywords" style="color: #999;">Keyword Extraction</label>
                     </div>
                 </div>
             </div>
@@ -432,14 +505,31 @@
                 <div style="margin-bottom: 10px;">
                     <label for="analysisDepth" style="display: block; margin-bottom: 5px;">Analysis Depth:</label>
                     <select id="analysisDepth" class="text-input">
-                        <option value="basic">Basic</option>
+                        <option value="basic" selected>Basic (Fast - Category Only)</option>
                         <option value="standard">Standard</option>
-                        <option value="comprehensive" selected>Comprehensive</option>
+                        <option value="comprehensive">Comprehensive (Full Analysis)</option>
                     </select>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label for="modelSelection" style="display: block; margin-bottom: 5px;">AI Model:</label>
+                    <select id="modelSelection" class="text-input">
+                        <option value="auto" selected>Auto (Based on Depth)</option>
+                        <option value="gpt-4o-mini">GPT-4o-mini (Fast & Cheap)</option>
+                        <option value="gpt-4o">GPT-4o (Best Quality)</option>
+                    </select>
+                    <div style="font-size: 11px; color: #888; margin-top: 3px;">
+                        Auto: mini for basic, full for comprehensive
+                    </div>
                 </div>
                 <div>
                     <label for="maxConcurrent" style="display: block; margin-bottom: 5px;">Max Concurrent:</label>
                     <input type="number" id="maxConcurrent" class="number-input" min="1" max="10" value="3">
+                    <span style="font-size: 11px; color: #888; margin-left: 5px;">1-10</span>
+                </div>
+                <div>
+                    <label for="batchSize" style="display: block; margin-bottom: 5px;">Batch Size:</label>
+                    <input type="number" id="batchSize" class="number-input" min="10" max="5000" value="1000">
+                    <span style="font-size: 11px; color: #888; margin-left: 5px;">URLs per batch</span>
                 </div>
             </div>
             
@@ -525,9 +615,43 @@
     </div>
 
     <script>
+        console.log('===== SCRIPT LOADED =====');
         // Use current domain in production, localhost in development
         const API_BASE = window.location.origin;
+        console.log('API_BASE set to:', API_BASE);
         let selectedFile = null;
+        
+        // Analysis depth change handler - toggle options based on depth
+        document.getElementById('analysisDepth').addEventListener('change', function(e) {
+            updateAnalysisOptions(e.target.value);
+        });
+        
+        function updateAnalysisOptions(depth) {
+            const isBasic = depth === 'basic';
+            const note = document.getElementById('basicModeNote');
+            const comprehensiveOnlyOptions = ['includeSentiment', 'includeEntities', 'includeKeywords'];
+            
+            // Show/hide the note
+            note.style.display = isBasic ? 'block' : 'none';
+            
+            comprehensiveOnlyOptions.forEach(id => {
+                const checkbox = document.getElementById(id);
+                const label = checkbox.nextElementSibling;
+                
+                if (isBasic) {
+                    checkbox.checked = false;
+                    checkbox.disabled = true;
+                    label.style.color = '#999';
+                } else {
+                    checkbox.checked = true;
+                    checkbox.disabled = false;
+                    label.style.color = '';
+                }
+            });
+        }
+        
+        // Initialize options state on page load
+        updateAnalysisOptions(document.getElementById('analysisDepth').value);
         
         // File input handling
         document.getElementById('fileInput').addEventListener('change', function(e) {
@@ -547,23 +671,435 @@
             document.getElementById(tabType + 'Tab').classList.add('active');
             
             // Show/hide sections
+            document.getElementById('fileUploadSection').style.display = 'none';
+            document.getElementById('pasteUploadSection').style.display = 'none';
+            document.getElementById('brandMatchSection').style.display = 'none';
+            document.getElementById('standardOptionsGrid').style.display = 'none';
+            document.getElementById('analyzeButton').style.display = 'none';
+            
             if (tabType === 'file') {
                 document.getElementById('fileUploadSection').style.display = 'block';
-                document.getElementById('pasteUploadSection').style.display = 'none';
-            } else {
-                document.getElementById('fileUploadSection').style.display = 'none';
+                document.getElementById('standardOptionsGrid').style.display = 'grid';
+                document.getElementById('analyzeButton').style.display = 'block';
+            } else if (tabType === 'paste') {
                 document.getElementById('pasteUploadSection').style.display = 'block';
+                document.getElementById('standardOptionsGrid').style.display = 'grid';
+                document.getElementById('analyzeButton').style.display = 'block';
+            } else if (tabType === 'brandMatch') {
+                document.getElementById('brandMatchSection').style.display = 'block';
+                // Brand match has its own button, hide the standard one
             }
             
             updateAnalyzeButton();
         }
         
+        function updateThresholdLabel(value) {
+            document.getElementById('thresholdLabel').textContent = value + '%';
+        }
+        
+        function updateBrandUrlCount() {
+            const textarea = document.getElementById('brandUrlTextarea');
+            const lines = textarea.value.split('\n');
+            let urls = [];
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    if (trimmedLine.includes(',')) {
+                        const lineUrls = trimmedLine.split(',').map(u => u.trim()).filter(u => u.length > 0);
+                        urls.push(...lineUrls);
+                    } else {
+                        urls.push(trimmedLine);
+                    }
+                }
+            }
+            
+            const validUrls = urls.filter(url => {
+                return /^(https?:\/\/)?[a-zA-Z0-9][a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}/i.test(url);
+            });
+            
+            const countElement = document.getElementById('brandUrlCount');
+            if (validUrls.length > 0) {
+                countElement.innerHTML = `<span style="color: #28a745;"><strong>${validUrls.length} URLs</strong> ready for brand matching</span>`;
+            } else {
+                countElement.innerHTML = '';
+            }
+            
+            // Update button state
+            const description = document.getElementById('brandDescription').value.trim();
+            document.getElementById('brandMatchButton').disabled = validUrls.length === 0 || description.length < 10;
+        }
+        
+        // Add event listeners for brand match inputs
+        document.getElementById('brandUrlTextarea').addEventListener('input', updateBrandUrlCount);
+        document.getElementById('brandDescription').addEventListener('input', updateBrandUrlCount);
+        
+        async function startBrandMatch() {
+            console.log('===== startBrandMatch() CALLED =====');
+            const description = document.getElementById('brandDescription').value.trim();
+            console.log('Description:', description);
+            const textarea = document.getElementById('brandUrlTextarea');
+            const relevanceThreshold = parseInt(document.getElementById('relevanceThreshold').value);
+            const maxResults = parseInt(document.getElementById('maxResults').value);
+            const maxConcurrent = parseInt(document.getElementById('brandMaxConcurrent').value);
+            
+            if (description.length < 10) {
+                alert('Please provide a more detailed brand/campaign description (at least 10 characters)');
+                return;
+            }
+            
+            // Parse URLs
+            const lines = textarea.value.split('\n');
+            let urls = [];
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    if (trimmedLine.includes(',')) {
+                        const lineUrls = trimmedLine.split(',').map(u => u.trim()).filter(u => u.length > 0);
+                        urls.push(...lineUrls);
+                    } else {
+                        urls.push(trimmedLine);
+                    }
+                }
+            }
+            
+            const validUrls = urls.filter(url => {
+                return /^(https?:\/\/)?[a-zA-Z0-9][a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}/i.test(url);
+            });
+            
+            if (validUrls.length === 0) {
+                alert('Please provide valid URLs to analyze');
+                return;
+            }
+            
+            // Show loading state
+            const button = document.getElementById('brandMatchButton');
+            const originalText = button.innerHTML;
+            button.innerHTML = '⏳ Analyzing URLs for brand relevance...';
+            button.disabled = true;
+            
+            // Show results container
+            document.getElementById('brandResultsContainer').style.display = 'block';
+            document.getElementById('brandSummarySection').style.display = 'none';
+            document.getElementById('brandResultsSection').innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">🎯</div>
+                    <h3>Finding Brand-Relevant URLs...</h3>
+                    <p>Analyzing ${validUrls.length} URLs against your criteria</p>
+                    <p style="color: #666; font-size: 14px;">This may take a few minutes for large batches</p>
+                    <div style="margin-top: 20px;">
+                        <div class="progress-bar" style="width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden;">
+                            <div id="brandProgressBar" style="width: 0%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: width 0.3s;"></div>
+                        </div>
+                        <p id="brandProgressText" style="margin-top: 10px; font-size: 13px; color: #888;">Starting analysis...</p>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                // Call the brand match API endpoint
+                console.log('Starting brand match request...');
+                console.log('API_BASE:', API_BASE);
+                console.log('URLs:', validUrls.length);
+                console.log('Description:', description);
+                
+                const formData = new FormData();
+                formData.append('urls_text', validUrls.join('\n'));
+                formData.append('brand_description', description);
+                formData.append('relevance_threshold', relevanceThreshold);
+                formData.append('max_results', maxResults);
+                formData.append('max_concurrent', maxConcurrent);
+                
+                console.log('Sending request to:', `${API_BASE}/api/v1/brand-match`);
+                
+                const response = await fetch(`${API_BASE}/api/v1/brand-match`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                // Store full response for exports
+                window.brandMatchData = data;
+                displayBrandMatchResults(data, description, relevanceThreshold);
+                
+            } catch (error) {
+                console.error('Brand match error:', error);
+                document.getElementById('brandResultsSection').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #dc3545;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                        <h3>Brand Match Failed</h3>
+                        <p>${error.message}</p>
+                        <p style="font-size: 13px; color: #888; margin-top: 15px;">
+                            Note: The Brand Match API endpoint needs to be implemented on the backend.
+                        </p>
+                    </div>
+                `;
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        }
+        
+        function displayBrandMatchResults(data, description, threshold) {
+            const matchedUrls = data.matched_urls || data.matching_urls || [];
+            const totalAnalyzed = data.total_urls_analyzed || data.total_analyzed || 0;
+            const avgRelevance = data.avg_relevance_score || data.average_relevance || 0;
+            const execTime = data.processing_time_seconds || 0;
+            const cost = data.estimated_cost_usd || 0;
+            
+            let resultsHtml = `
+                <div style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 8px; border-left: 4px solid #667eea;">
+                    <h3 style="margin: 0 0 10px 0;">🎯 Brand Match Results</h3>
+                    <p style="margin: 0; color: #666;"><strong>Criteria:</strong> ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}</p>
+                    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-top: 15px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #667eea;">${matchedUrls.length}</div>
+                            <div style="font-size: 12px; color: #888;">Matched URLs</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #28a745;">${totalAnalyzed}</div>
+                            <div style="font-size: 12px; color: #888;">Total Analyzed</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #ffc107;">${avgRelevance.toFixed(1)}%</div>
+                            <div style="font-size: 12px; color: #888;">Avg Relevance</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #17a2b8;">${threshold}%</div>
+                            <div style="font-size: 12px; color: #888;">Threshold</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #6c757d;">${formatTime(execTime)}</div>
+                            <div style="font-size: 12px; color: #888;">Exec Time</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #dc3545;">$${cost.toFixed(4)}</div>
+                            <div style="font-size: 12px; color: #888;">Cost</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (matchedUrls.length > 0) {
+                resultsHtml += `
+                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <h4 style="margin: 0;">📋 Matched URLs (Ranked by Relevance)</h4>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="exportBrandMatchCSV()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                📥 CSV
+                            </button>
+                            <button onclick="exportBrandMatchJSON()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                📥 JSON
+                            </button>
+                            <button onclick="exportBrandMatchExcel()" style="padding: 8px 16px; background: #217346; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                📥 Excel
+                            </button>
+                        </div>
+                    </div>
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                                <tr>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">#</th>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">URL</th>
+                                    <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Relevance</th>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">Match Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                matchedUrls.forEach((item, index) => {
+                    const relevanceColor = item.relevance_score >= 80 ? '#28a745' : 
+                                          item.relevance_score >= 60 ? '#ffc107' : '#fd7e14';
+                    resultsHtml += `
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px; font-weight: bold; color: #888;">${index + 1}</td>
+                            <td style="padding: 10px;">
+                                <a href="${item.url}" target="_blank" style="color: #007bff; text-decoration: none; word-break: break-all;">
+                                    ${item.url.length > 60 ? item.url.substring(0, 60) + '...' : item.url}
+                                </a>
+                            </td>
+                            <td style="padding: 10px; text-align: center;">
+                                <span style="background: ${relevanceColor}; color: white; padding: 4px 12px; border-radius: 12px; font-weight: bold;">
+                                    ${item.relevance_score}%
+                                </span>
+                            </td>
+                            <td style="padding: 10px; font-size: 13px; color: #666;">${item.match_reason || '-'}</td>
+                        </tr>
+                    `;
+                });
+                
+                resultsHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                resultsHtml += `
+                    <div style="text-align: center; padding: 40px; color: #888;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">🔍</div>
+                        <h3>No URLs matched your criteria</h3>
+                        <p>Try lowering the relevance threshold or broadening your brand description</p>
+                    </div>
+                `;
+            }
+            
+            // Store results for export
+            window.brandMatchResults = matchedUrls;
+            window.brandMatchDescription = description;
+            
+            document.getElementById('brandResultsSection').innerHTML = resultsHtml;
+        }
+        
+        function exportBrandMatchCSV() {
+            if (!window.brandMatchData || !window.brandMatchData.matching_urls) {
+                alert('No results to export');
+                return;
+            }
+            
+            const data = window.brandMatchData;
+            const matchedUrls = data.matching_urls || [];
+            const execTime = data.processing_time_seconds || 0;
+            const cost = data.estimated_cost_usd || 0;
+            const description = data.brand_description || '';
+            const threshold = data.relevance_threshold || 0;
+            
+            // Header with metadata
+            let csv = `# Brand Match Results\n`;
+            csv += `# Description: "${description.replace(/"/g, '""')}"\n`;
+            csv += `# Threshold: ${threshold}%\n`;
+            csv += `# Total Analyzed: ${data.total_urls_analyzed || 0}\n`;
+            csv += `# Matched URLs: ${matchedUrls.length}\n`;
+            csv += `# Execution Time: ${execTime}s\n`;
+            csv += `# Cost: $${cost.toFixed(4)}\n`;
+            csv += `# Generated: ${new Date().toISOString()}\n`;
+            csv += `\n`;
+            csv += 'URL,Relevance Score,Category,Content Summary,Match Reason\n';
+            
+            matchedUrls.forEach(item => {
+                const summary = (item.content_summary || '').replace(/"/g, '""').replace(/\n/g, ' ');
+                const reason = (item.match_reason || '').replace(/"/g, '""');
+                const category = (item.primary_category || '').replace(/"/g, '""');
+                csv += `"${item.url}",${item.relevance_score},"${category}","${summary}","${reason}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `brand_match_${new Date().toISOString().slice(0,19).replace(/[:-]/g, '')}.csv`;
+            link.click();
+        }
+        
+        function exportBrandMatchJSON() {
+            if (!window.brandMatchData) {
+                alert('No results to export');
+                return;
+            }
+            
+            const exportData = {
+                ...window.brandMatchData,
+                exported_at: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `brand_match_${new Date().toISOString().slice(0,19).replace(/[:-]/g, '')}.json`;
+            link.click();
+        }
+        
+        function exportBrandMatchExcel() {
+            if (!window.brandMatchData || !window.brandMatchData.matching_urls) {
+                alert('No results to export');
+                return;
+            }
+            
+            const data = window.brandMatchData;
+            const matchedUrls = data.matching_urls || [];
+            const execTime = data.processing_time_seconds || 0;
+            const cost = data.estimated_cost_usd || 0;
+            
+            // Create Excel-compatible XML (can be opened by Excel)
+            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            xml += '<?mso-application progid="Excel.Sheet"?>\n';
+            xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+            
+            // Summary Sheet
+            xml += '<Worksheet ss:Name="Summary">\n<Table>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Brand Match Analysis Summary</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Description</Data></Cell><Cell><Data ss:Type="String">' + escapeXml(data.brand_description || '') + '</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Threshold</Data></Cell><Cell><Data ss:Type="Number">' + (data.relevance_threshold || 0) + '</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Total URLs Analyzed</Data></Cell><Cell><Data ss:Type="Number">' + (data.total_urls_analyzed || 0) + '</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Matched URLs</Data></Cell><Cell><Data ss:Type="Number">' + matchedUrls.length + '</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Avg Relevance</Data></Cell><Cell><Data ss:Type="Number">' + (data.avg_relevance_score || 0) + '</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Execution Time (s)</Data></Cell><Cell><Data ss:Type="Number">' + execTime + '</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Cost (USD)</Data></Cell><Cell><Data ss:Type="Number">' + cost + '</Data></Cell></Row>\n';
+            xml += '<Row><Cell><Data ss:Type="String">Generated</Data></Cell><Cell><Data ss:Type="String">' + new Date().toISOString() + '</Data></Cell></Row>\n';
+            xml += '</Table>\n</Worksheet>\n';
+            
+            // Results Sheet
+            xml += '<Worksheet ss:Name="Matched URLs">\n<Table>\n';
+            xml += '<Row><Cell><Data ss:Type="String">URL</Data></Cell><Cell><Data ss:Type="String">Relevance Score</Data></Cell><Cell><Data ss:Type="String">Category</Data></Cell><Cell><Data ss:Type="String">Content Summary</Data></Cell></Row>\n';
+            
+            matchedUrls.forEach(item => {
+                xml += '<Row>';
+                xml += '<Cell><Data ss:Type="String">' + escapeXml(item.url) + '</Data></Cell>';
+                xml += '<Cell><Data ss:Type="Number">' + item.relevance_score + '</Data></Cell>';
+                xml += '<Cell><Data ss:Type="String">' + escapeXml(item.primary_category || '') + '</Data></Cell>';
+                xml += '<Cell><Data ss:Type="String">' + escapeXml((item.content_summary || '').substring(0, 200)) + '</Data></Cell>';
+                xml += '</Row>\n';
+            });
+            
+            xml += '</Table>\n</Worksheet>\n</Workbook>';
+            
+            const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `brand_match_${new Date().toISOString().slice(0,19).replace(/[:-]/g, '')}.xls`;
+            link.click();
+        }
+        
+        function escapeXml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+        
+        function formatTime(seconds) {
+            if (seconds < 60) return seconds.toFixed(1) + 's';
+            if (seconds < 3600) return Math.floor(seconds / 60) + 'm ' + Math.floor(seconds % 60) + 's';
+            return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+        }
+        
+        // Keep old function name for backwards compatibility
+        function exportBrandMatchResults() {
+            exportBrandMatchCSV();
+        }
+        
         function updateUrlCount() {
             const textarea = document.getElementById('urlTextarea');
-            const urls = textarea.value
-                .split('\n')
-                .map(url => url.trim())
-                .filter(url => url.length > 0);
+            // Parse URLs the same way backend does - split by newlines AND commas
+            const lines = textarea.value.split('\n');
+            let urls = [];
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    if (trimmedLine.includes(',')) {
+                        const lineUrls = trimmedLine.split(',').map(u => u.trim()).filter(u => u.length > 0);
+                        urls.push(...lineUrls);
+                    } else {
+                        urls.push(trimmedLine);
+                    }
+                }
+            }
             
             const urlCountElement = document.getElementById('urlCount');
             const totalCount = urls.length;
@@ -583,8 +1119,8 @@
             
             // Build status message
             let message = '';
-            if (validCount > 1000) {
-                message = `<span style="color: #dc3545;"><strong>${validCount} valid URLs</strong> (${invalidCount} invalid) - Maximum 1000 allowed, will analyze first 1000</span>`;
+            if (validCount > 10000) {
+                message = `<span style="color: #dc3545;"><strong>${validCount} valid URLs</strong> (${invalidCount} invalid) - Maximum 10,000 allowed, will analyze first 10,000</span>`;
             } else if (invalidCount > 0) {
                 message = `<span style="color: #ff9800;"><strong>${validCount} valid URLs</strong> (${invalidCount} invalid will be skipped)</span>`;
             } else {
@@ -598,14 +1134,29 @@
             const activeTab = document.querySelector('.tab-button.active').id;
             const button = document.getElementById('analyzeButton');
             
+            // Brand match tab has its own button, skip this function
+            if (activeTab === 'brandMatchTab') {
+                return;
+            }
+            
             if (activeTab === 'fileTab') {
                 button.disabled = !selectedFile;
-            } else {
+            } else if (activeTab === 'pasteTab') {
                 const textarea = document.getElementById('urlTextarea');
-                const urls = textarea.value
-                    .split('\n')
-                    .map(url => url.trim())
-                    .filter(url => url.length > 0);
+                // Parse URLs same way backend does - split by newlines AND commas
+                const lines = textarea.value.split('\n');
+                let urls = [];
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine) {
+                        if (trimmedLine.includes(',')) {
+                            const lineUrls = trimmedLine.split(',').map(u => u.trim()).filter(u => u.length > 0);
+                            urls.push(...lineUrls);
+                        } else {
+                            urls.push(trimmedLine);
+                        }
+                    }
+                }
                 
                 // Only count valid URLs
                 const validUrls = urls.filter(url => {
@@ -669,12 +1220,21 @@
                 }
                 useFormData = true;
             } else {
-                // Copy/paste method
+                // Copy/paste method - parse URLs same way backend does
                 const textarea = document.getElementById('urlTextarea');
-                const urls = textarea.value
-                    .split('\n')
-                    .map(url => url.trim())
-                    .filter(url => url.length > 0);
+                const lines = textarea.value.split('\n');
+                let urls = [];
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine) {
+                        if (trimmedLine.includes(',')) {
+                            const lineUrls = trimmedLine.split(',').map(u => u.trim()).filter(u => u.length > 0);
+                            urls.push(...lineUrls);
+                        } else {
+                            urls.push(trimmedLine);
+                        }
+                    }
+                }
                 
                 if (urls.length === 0) {
                     alert('Please paste some URLs first.');
@@ -691,18 +1251,18 @@
                     return;
                 }
                 
-                // Limit to 1000 valid URLs
-                const urlsToProcess = validUrls.slice(0, 1000);
+                // Limit to 10000 valid URLs
+                const urlsToProcess = validUrls.slice(0, 10000);
                 const skippedCount = validUrls.length - urlsToProcess.length;
                 
                 // Inform user about invalid and excess URLs
                 let message = '';
                 if (invalidUrls.length > 0 && skippedCount > 0) {
-                    message = `Processing ${urlsToProcess.length} valid URLs.\n${invalidUrls.length} invalid URLs will be skipped.\n${skippedCount} URLs exceed the 1000 limit and will be skipped.`;
+                    message = `Processing ${urlsToProcess.length} valid URLs.\n${invalidUrls.length} invalid URLs will be skipped.\n${skippedCount} URLs exceed the 10,000 limit and will be skipped.`;
                 } else if (invalidUrls.length > 0) {
                     message = `Processing ${urlsToProcess.length} valid URLs.\n${invalidUrls.length} invalid URLs will be skipped.`;
                 } else if (skippedCount > 0) {
-                    message = `Processing first ${urlsToProcess.length} URLs.\n${skippedCount} URLs exceed the 1000 limit and will be skipped.`;
+                    message = `Processing first ${urlsToProcess.length} URLs.\n${skippedCount} URLs exceed the 10,000 limit and will be skipped.`;
                 }
                 
                 if (message && !confirm(message + '\n\nContinue?')) {
@@ -730,8 +1290,17 @@
                     formData.append('include_summary', document.getElementById('includeSummary').checked);
                     formData.append('include_category', document.getElementById('includeCategory').checked);
                     formData.append('include_keywords', document.getElementById('includeKeywords').checked);
+                    formData.append('analysis_depth', document.getElementById('analysisDepth').value);
+                    formData.append('max_concurrent', document.getElementById('maxConcurrent').value);
+                    formData.append('batch_size', document.getElementById('batchSize').value);
+                    formData.append('model_selection', document.getElementById('modelSelection').value);
                     
-                    response = await fetch(`${API_BASE}/api/v1/upload-urls`, {
+                    const customCategories = document.getElementById('customCategories').value.trim();
+                    if (customCategories) {
+                        formData.append('custom_categories', customCategories);
+                    }
+                    
+                    response = await fetch(`${API_BASE}/api/v1/upload-urls-advanced`, {
                         method: 'POST',
                         body: formData
                     });
@@ -746,6 +1315,8 @@
                     formData.append('include_keywords', document.getElementById('includeKeywords').checked);
                     formData.append('analysis_depth', document.getElementById('analysisDepth').value);
                     formData.append('max_concurrent', document.getElementById('maxConcurrent').value);
+                    formData.append('batch_size', document.getElementById('batchSize').value);
+                    formData.append('model_selection', document.getElementById('modelSelection').value);
                     
                     const customCategories = document.getElementById('customCategories').value.trim();
                     if (customCategories) {

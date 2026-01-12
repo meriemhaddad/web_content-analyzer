@@ -4,6 +4,7 @@ MCP (Model Context Protocol) client for fetching web content using the Fetch ser
 
 import asyncio
 import logging
+import ssl
 from typing import Optional, Dict, Any
 import aiohttp
 import json
@@ -95,7 +96,7 @@ class MCPFetchClient:
             logger.warning(f"MCP server fetch failed: {str(e)}, falling back to direct fetch")
             return await self._fetch_direct(url)
     
-    async def _fetch_direct(self, url: str, retry_count: int = 0) -> Dict[str, Any]:
+    async def _fetch_direct(self, url: str, retry_count: int = 0, skip_ssl_verify: bool = False) -> Dict[str, Any]:
         """Direct HTTP fetch as fallback."""
         if not self.session:
             raise RuntimeError("Session not initialized. Use async context manager.")
@@ -103,6 +104,14 @@ class MCPFetchClient:
         # Parse the URL to get the domain for Referer header
         parsed = urlparse(url)
         base_url = f"{parsed.scheme}://{parsed.netloc}"
+        
+        # Create SSL context if skipping verification
+        ssl_context = None
+        if skip_ssl_verify:
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            logger.warning(f"SSL verification disabled for {url}")
             
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -123,9 +132,26 @@ class MCPFetchClient:
         }
         
         try:
-            async with self.session.get(url, headers=headers) as response:
+            async with self.session.get(url, headers=headers, ssl=ssl_context) as response:
                 if response.status == 200:
-                    content = await response.text()
+                    # Try to decode with proper encoding detection
+                    try:
+                        content = await response.text()
+                    except UnicodeDecodeError:
+                        # Fallback: read as bytes and try multiple encodings
+                        raw_bytes = await response.read()
+                        content = None
+                        for encoding in ['utf-8', 'iso-8859-1', 'windows-1252', 'latin-1']:
+                            try:
+                                content = raw_bytes.decode(encoding)
+                                logger.info(f"Successfully decoded {url} with {encoding}")
+                                break
+                            except UnicodeDecodeError:
+                                continue
+                        if content is None:
+                            # Last resort: decode with errors='replace'
+                            content = raw_bytes.decode('utf-8', errors='replace')
+                            logger.warning(f"Used lossy UTF-8 decoding for {url}")
                     
                     # Extract basic metadata
                     metadata = {
@@ -168,7 +194,41 @@ class MCPFetchClient:
                     
                     raise aiohttp.ClientError(error_msg)
                     
+        except aiohttp.ClientConnectorSSLError as e:
+            # SSL error - retry with SSL verification disabled
+            if not skip_ssl_verify:
+                logger.warning(f"SSL error for {url}, retrying without SSL verification: {str(e)}")
+                return await self._fetch_direct(url, retry_count, skip_ssl_verify=True)
+            else:
+                logger.error(f"SSL fetch failed even without verification for {url}: {str(e)}")
+                return {
+                    "content": "",
+                    "metadata": {"url": url, "status_code": None, "error": str(e)},
+                    "status": "error",
+                    "source": "direct_fetch",
+                    "error": str(e)
+                }
+        except aiohttp.ClientConnectorCertificateError as e:
+            # Certificate error - retry with SSL verification disabled
+            if not skip_ssl_verify:
+                logger.warning(f"Certificate error for {url}, retrying without SSL verification: {str(e)}")
+                return await self._fetch_direct(url, retry_count, skip_ssl_verify=True)
+            else:
+                logger.error(f"Certificate fetch failed even without verification for {url}: {str(e)}")
+                return {
+                    "content": "",
+                    "metadata": {"url": url, "status_code": None, "error": str(e)},
+                    "status": "error",
+                    "source": "direct_fetch",
+                    "error": str(e)
+                }
         except Exception as e:
+            # Check if it's an SSL-related error in the message
+            error_str = str(e).lower()
+            if ('ssl' in error_str or 'certificate' in error_str) and not skip_ssl_verify:
+                logger.warning(f"SSL-related error for {url}, retrying without SSL verification: {str(e)}")
+                return await self._fetch_direct(url, retry_count, skip_ssl_verify=True)
+            
             logger.error(f"Direct fetch failed for {url}: {str(e)}")
             return {
                 "content": "",

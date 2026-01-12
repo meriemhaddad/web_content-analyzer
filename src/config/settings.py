@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     azure_openai_api_key: Optional[str] = None  # Optional - will use DefaultAzureCredential if not provided
     azure_openai_api_version: str = "2024-02-01"
     azure_openai_deployment_name: str = "gpt-4o"
+    azure_openai_mini_deployment_name: str = "gpt-4o-mini"  # Faster/cheaper model for basic analysis
+    
+    # Analysis mode settings
+    default_analysis_depth: str = "basic"  # basic (category only), detailed, comprehensive
+    max_concurrent_requests: int = 3  # Conservative for 10K TPM quota (each request ~500-1500 tokens)
+    basic_max_content_length: int = 5000  # Reduced content for basic analysis
+    basic_max_tokens: int = 300  # Reduced output tokens for basic analysis
     
     # Azure authentication settings
     use_managed_identity: bool = False  # Set to True for Azure Managed Identity
@@ -49,7 +56,7 @@ class Settings(BaseSettings):
     analysis_timeout: int = 30  # Timeout in seconds for analysis
     
     # Batch processing settings
-    max_batch_size: int = 1000
+    max_batch_size: int = 10000
     batch_timeout: int = 300  # 5 minutes
     
     class Config:

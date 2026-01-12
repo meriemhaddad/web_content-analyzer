@@ -44,7 +44,8 @@ class AzureOpenAIService:
             return AsyncAzureOpenAI(
                 api_key=api_key,
                 api_version=self.settings.azure_openai_api_version,
-                azure_endpoint=endpoint
+                azure_endpoint=endpoint,
+                max_retries=0  # Disable automatic retries - fail fast instead of waiting
             )
         elif self.settings.should_use_azure_credentials():
             logger.info("Using Azure credential chain for authentication")
@@ -65,7 +66,8 @@ class AzureOpenAIService:
             return AsyncAzureOpenAI(
                 azure_ad_token_provider=self._get_token_provider(credential),
                 api_version=self.settings.azure_openai_api_version,
-                azure_endpoint=endpoint
+                azure_endpoint=endpoint,
+                max_retries=0  # Disable automatic retries - fail fast instead of waiting
             )
         else:
             raise ValueError(
@@ -87,8 +89,9 @@ class AzureOpenAIService:
         content: str,
         url: str,
         metadata: Optional[Dict[str, Any]] = None,
-        analysis_depth: str = "comprehensive",
-        custom_categories: Optional[List[str]] = None
+        analysis_depth: str = "basic",
+        custom_categories: Optional[List[str]] = None,
+        model_selection: str = "auto"
     ) -> Dict[str, Any]:
         """
         Analyze content using GPT-4o for advanced semantic analysis.
@@ -97,33 +100,56 @@ class AzureOpenAIService:
             content: The web page content to analyze
             url: The source URL
             metadata: Optional page metadata
-            analysis_depth: Analysis depth level
+            analysis_depth: Analysis depth level (basic, detailed, comprehensive)
             custom_categories: Custom categories to focus on
+            model_selection: Model to use - 'auto', 'gpt-4o-mini', or 'gpt-4o'
             
         Returns:
             Comprehensive analysis results
         """
         try:
+            # Select model based on model_selection or analysis depth
+            is_basic = analysis_depth == "basic"
+            
+            if model_selection == "gpt-4o-mini":
+                model = self.settings.azure_openai_mini_deployment_name
+                max_tokens = self.settings.basic_max_tokens
+            elif model_selection == "gpt-4o":
+                model = self.settings.azure_openai_deployment_name
+                max_tokens = 4000
+            else:  # auto - based on analysis depth
+                model = self.settings.azure_openai_mini_deployment_name if is_basic else self.settings.azure_openai_deployment_name
+                max_tokens = self.settings.basic_max_tokens if is_basic else 4000
+            
+            # Truncate content for basic analysis or mini model
+            if is_basic or model_selection == "gpt-4o-mini":
+                max_content = self.settings.basic_max_content_length
+                if len(content) > max_content:
+                    content = content[:max_content] + "... [truncated]"
+            
             # Build the analysis prompt
             prompt = self._build_analysis_prompt(
                 content, url, metadata, analysis_depth, custom_categories
             )
             
-            # Call GPT-4o for analysis
+            # Get appropriate system prompt
+            system_prompt = self._get_basic_system_prompt() if is_basic else self._get_system_prompt()
+            
+            # Call GPT-4o or GPT-4o-mini for analysis
             response = await self.client.chat.completions.create(
-                model=self.settings.azure_openai_deployment_name,
+                model=model,
                 messages=[
                     {
                         "role": "system",
-                        "content": self._get_system_prompt()
+                        "content": system_prompt
                     },
                     {
                         "role": "user",
                         "content": prompt
                     }
                 ],
-                temperature=0.3,
-                max_tokens=4000,
+                temperature=0.2 if is_basic else 0.3,
+                max_tokens=max_tokens,
                 response_format={"type": "json_object"}
             )
             
@@ -189,6 +215,25 @@ class AzureOpenAIService:
         
         Provide deep semantic understanding, not just keyword matching.
         """
+    
+    def _get_basic_system_prompt(self) -> str:
+        """Get minimal system prompt for category-only analysis (optimized for speed)."""
+        
+        return """You are a web content categorizer. Analyze and categorize web content quickly.
+        
+Respond with valid JSON only:
+{
+    "primary_category": "category_name",
+    "secondary_categories": ["cat1", "cat2"],
+    "category_confidence": 0.95,
+    "content_summary": "One sentence summary"
+}
+
+Categories: news, sports, technology, business, entertainment, education, health, travel, 
+politics, science, finance, lifestyle, blog, ecommerce, satire, humor, opinion, review, 
+documentation, forum, social_media, or create appropriate category if none fit.
+
+Use lowercase with underscores. Be accurate and concise."""
     
     def _build_analysis_prompt(
         self,

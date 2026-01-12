@@ -31,7 +31,7 @@ router = APIRouter()
 # Log file for tracking analysis runs
 LOG_FILE = "analysis_runs.csv"
 
-def log_analysis_run(total_urls: int, successful: int, cost_usd: float):
+def log_analysis_run(total_urls: int, successful: int, cost_usd: float, processing_time_seconds: float = 0.0, avg_time_per_url: float = 0.0, analysis_type: str = "Bulk Analysis"):
     """Log analysis run metrics to CSV file."""
     try:
         file_exists = os.path.exists(LOG_FILE)
@@ -41,16 +41,16 @@ def log_analysis_run(total_urls: int, successful: int, cost_usd: float):
             
             # Write header if file is new
             if not file_exists:
-                writer.writerow(['Timestamp', 'Total URLs', 'Success Rate (%)', 'OpenAI Cost (USD)'])
+                writer.writerow(['Timestamp', 'Total URLs', 'Success Rate (%)', 'OpenAI Cost (USD)', 'Execution Time (s)', 'Avg Time per URL (s)', 'Analysis Type'])
             
             # Calculate success rate
             success_rate = (successful / total_urls * 100) if total_urls > 0 else 0
             
             # Write metrics
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            writer.writerow([timestamp, total_urls, f"{success_rate:.1f}", f"{cost_usd:.4f}"])
+            writer.writerow([timestamp, total_urls, f"{success_rate:.1f}", f"{cost_usd:.4f}", f"{processing_time_seconds:.2f}", f"{avg_time_per_url:.2f}", analysis_type])
             
-        logger.info(f"Logged analysis run: {total_urls} URLs, {success_rate:.1f}% success, ${cost_usd:.4f}")
+        logger.info(f"Logged {analysis_type}: {total_urls} URLs, {success_rate:.1f}% success, ${cost_usd:.4f}, {processing_time_seconds:.2f}s total, {avg_time_per_url:.2f}s/URL")
     except Exception as e:
         logger.error(f"Failed to log analysis run: {e}")
 
@@ -259,7 +259,9 @@ async def batch_analyze_urls(
         log_analysis_run(
             total_urls=len(request.urls),
             successful=len(successful_results),
-            cost_usd=estimated_cost if cost_estimate else 0.0
+            cost_usd=estimated_cost if cost_estimate else 0.0,
+            processing_time_seconds=processing_time,
+            avg_time_per_url=average_time_per_url or 0.0
         )
         
         return batch_result
@@ -445,8 +447,10 @@ async def upload_urls_file(
 )
 async def upload_urls_advanced(
     urls_text: str = Form(..., description="URLs separated by newlines or commas"),
-    analysis_depth: str = Form("comprehensive", description="Analysis depth: basic, standard, comprehensive"),
+    analysis_depth: str = Form("basic", description="Analysis depth: basic, standard, comprehensive"),
     max_concurrent: int = Form(3, description="Maximum concurrent analyses (1-10)"),
+    batch_size: int = Form(1000, description="URLs per batch for processing (10-5000)"),
+    model_selection: str = Form("auto", description="Model: auto, gpt-4o-mini, gpt-4o"),
     include_sentiment: bool = Form(True),
     include_entities: bool = Form(True),
     include_summary: bool = Form(True),
@@ -514,15 +518,21 @@ async def upload_urls_advanced(
                 detail=f"Too many URLs. Maximum: {settings.max_batch_size}, provided: {len(urls)}"
             )
         
-        # Validate concurrent limit
+        # Validate concurrent limit (conservative for API rate limits)
         max_concurrent = max(1, min(max_concurrent, 10))
+        
+        # Validate batch size
+        batch_size = max(10, min(batch_size, 5000))
         
         # Parse custom categories
         custom_cats = None
         if custom_categories:
             custom_cats = [cat.strip() for cat in custom_categories.split(',') if cat.strip()]
         
-        logger.info(f"Advanced upload analysis: {len(urls)} URLs, depth: {analysis_depth}, concurrent: {max_concurrent}")
+        logger.info(f"Advanced upload analysis: {len(urls)} URLs, depth: {analysis_depth}, model: {model_selection}, concurrent: {max_concurrent}, batch_size: {batch_size}")
+        
+        # Start timing for wall-clock measurement
+        start_time = time.time()
         
         # Create analysis options
         options = {
@@ -530,7 +540,8 @@ async def upload_urls_advanced(
             "include_entities": include_entities,
             "include_summary": include_summary,
             "include_category": include_category,
-            "include_keywords": include_keywords
+            "include_keywords": include_keywords,
+            "model_selection": model_selection
         }
         
         # Perform batch analysis with custom options
@@ -539,7 +550,8 @@ async def upload_urls_advanced(
             analysis_depth=analysis_depth,
             options=options,
             custom_categories=custom_cats,
-            max_concurrent=max_concurrent
+            max_concurrent=max_concurrent,
+            batch_size=batch_size
         )
         
         # Calculate statistics
@@ -596,9 +608,9 @@ async def upload_urls_advanced(
             api_calls=api_calls
         ) if total_tokens > 0 else None
         
-        # Calculate total processing time and average per URL
-        total_processing_time = sum(r.processing_time_seconds for r in individual_results)
-        average_time_per_url = total_processing_time / len(successful_results) if successful_results else None
+        # Calculate actual wall-clock processing time (not sum of individual times)
+        total_processing_time = time.time() - start_time
+        average_time_per_url = total_processing_time / len(urls) if urls else None
         
         # Build batch result
         batch_result = BatchAnalysisResult(
@@ -620,7 +632,9 @@ async def upload_urls_advanced(
         log_analysis_run(
             total_urls=len(urls),
             successful=len(successful_results),
-            cost_usd=estimated_cost if cost_estimate else 0.0
+            cost_usd=estimated_cost if cost_estimate else 0.0,
+            processing_time_seconds=total_processing_time,
+            avg_time_per_url=average_time_per_url or 0.0
         )
         
         return batch_result
@@ -707,6 +721,234 @@ def _get_category_description(category: str) -> str:
 
 # Error handlers are defined in main.py for the FastAPI app
 # Router-level exception handlers are not supported
+
+
+@router.post(
+    "/brand-match",
+    summary="Find brand-relevant URLs",
+    description="Analyze URLs and filter those matching a brand/campaign description"
+)
+async def brand_match(
+    urls_text: str = Form(..., description="URLs separated by newlines or commas"),
+    brand_description: str = Form(..., description="Brand or campaign description to match against"),
+    relevance_threshold: int = Form(70, description="Minimum relevance score (0-100)"),
+    max_results: int = Form(1000, description="Maximum number of matching URLs to return"),
+    max_concurrent: int = Form(3, description="Maximum concurrent analyses (1-10)"),
+    analyzer: ContentAnalysisEngine = Depends(get_content_analyzer)
+):
+    """
+    Analyze URLs and find those that match a brand/campaign description.
+    
+    This endpoint:
+    1. Fetches and analyzes content from each URL
+    2. Scores each URL's relevance to the brand description
+    3. Returns URLs that meet the relevance threshold
+    
+    **Use case example:**
+    - Brand description: "Nike looking for new customers interested in running"
+    - Returns URLs with content relevant to running, sports, fitness, etc.
+    """
+    settings = get_settings()
+    
+    try:
+        # Parse URLs from text input
+        urls_text = urls_text.strip()
+        if not urls_text:
+            raise HTTPException(status_code=400, detail="No URLs provided")
+        
+        # Split by newlines first, then by commas
+        lines = urls_text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        urls = []
+        
+        for line in lines:
+            line = line.strip()
+            if line:
+                if ',' in line:
+                    line_urls = [u.strip() for u in line.split(',') if u.strip()]
+                    urls.extend(line_urls)
+                else:
+                    urls.append(line)
+        
+        # Remove duplicates while preserving order
+        unique_urls = []
+        seen = set()
+        for url in urls:
+            if url not in seen:
+                unique_urls.append(url)
+                seen.add(url)
+        urls = unique_urls
+        
+        if len(urls) == 0:
+            raise HTTPException(status_code=400, detail="No valid URLs found")
+        
+        # Validate parameters
+        max_concurrent = max(1, min(max_concurrent, 10))
+        relevance_threshold = max(0, min(relevance_threshold, 100))
+        max_results = max(1, min(max_results, 10000))
+        
+        logger.info(f"Brand match analysis: {len(urls)} URLs, threshold: {relevance_threshold}%, max_results: {max_results}")
+        logger.info(f"Brand description: {brand_description[:100]}...")
+        
+        # Start timing
+        start_time = time.time()
+        
+        # Perform batch analysis with brand matching enabled
+        individual_results = await analyzer.batch_analyze_urls(
+            urls,
+            analysis_depth="basic",
+            max_concurrent=max_concurrent,
+            options={
+                "model_selection": "auto",
+                "brand_match_mode": True,
+                "brand_description": brand_description
+            }
+        )
+        
+        # Score each result for brand relevance
+        matching_urls = []
+        all_scored_urls = []
+        
+        for result in individual_results:
+            if result.status != "success":
+                continue
+            
+            # Calculate relevance score based on content analysis
+            relevance_score = _calculate_brand_relevance(result, brand_description)
+            
+            scored_url = {
+                "url": result.url,
+                "relevance_score": relevance_score,
+                "primary_category": result.primary_category,
+                "content_summary": result.content_summary[:200] if result.content_summary else "",
+                "key_insights": result.key_insights[:3] if result.key_insights else [],
+                "sentiment": result.sentiment.overall if result.sentiment else "neutral",
+                "quality_score": result.content_quality_score
+            }
+            
+            all_scored_urls.append(scored_url)
+            
+            if relevance_score >= relevance_threshold:
+                matching_urls.append(scored_url)
+        
+        # Sort by relevance score (highest first) and limit results
+        matching_urls.sort(key=lambda x: x["relevance_score"], reverse=True)
+        matching_urls = matching_urls[:max_results]
+        
+        # Calculate statistics
+        processing_time = time.time() - start_time
+        total_analyzed = sum(1 for r in individual_results if r.status == "success")
+        
+        # Calculate cost
+        total_tokens = 0
+        for result in individual_results:
+            if result.token_usage:
+                try:
+                    tokens = result.token_usage.get('total_tokens', 0) if isinstance(result.token_usage, dict) else getattr(result.token_usage, 'total_tokens', 0)
+                    total_tokens += tokens
+                except:
+                    pass
+        
+        estimated_cost = (total_tokens / 1000) * 0.00375  # Average of input/output pricing
+        
+        response_data = {
+            "brand_description": brand_description,
+            "relevance_threshold": relevance_threshold,
+            "total_urls_submitted": len(urls),
+            "total_urls_analyzed": total_analyzed,
+            "matching_urls_count": len(matching_urls),
+            "matching_urls": matching_urls,
+            "processing_time_seconds": round(processing_time, 2),
+            "estimated_cost_usd": round(estimated_cost, 4),
+            "avg_relevance_score": round(sum(u["relevance_score"] for u in matching_urls) / len(matching_urls), 1) if matching_urls else 0
+        }
+        
+        # Log to analysis_runs.csv using shared function
+        avg_time = round(processing_time / len(urls), 2) if len(urls) > 0 else 0
+        log_analysis_run(
+            total_urls=len(urls),
+            successful=total_analyzed,
+            cost_usd=estimated_cost,
+            processing_time_seconds=processing_time,
+            avg_time_per_url=avg_time,
+            analysis_type='Brand Match'
+        )
+        
+        logger.info(f"Brand match complete: {len(matching_urls)}/{total_analyzed} URLs match (threshold: {relevance_threshold}%)")
+        
+        return response_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in brand match: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Brand match failed: {str(e)}"
+        )
+
+
+def _calculate_brand_relevance(result: ContentAnalysisResult, brand_description: str) -> int:
+    """
+    Calculate relevance score (0-100) between content and brand description.
+    
+    Uses keyword matching, category alignment, and semantic similarity indicators.
+    """
+    score = 0
+    brand_lower = brand_description.lower()
+    
+    # Extract key terms from brand description
+    brand_terms = set(brand_lower.split())
+    # Remove common stop words
+    stop_words = {'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+                  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+                  'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare',
+                  'ought', 'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by',
+                  'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above',
+                  'below', 'between', 'under', 'again', 'further', 'then', 'once',
+                  'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
+                  'your', 'yours', 'yourself', 'he', 'him', 'his', 'himself', 'she',
+                  'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them',
+                  'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom',
+                  'this', 'that', 'these', 'those', 'am', 'and', 'but', 'if', 'or',
+                  'because', 'until', 'while', 'although', 'looking', 'want', 'new'}
+    brand_terms = brand_terms - stop_words
+    
+    # Check content summary for brand term matches
+    summary_lower = (result.content_summary or "").lower()
+    matching_terms = sum(1 for term in brand_terms if term in summary_lower)
+    term_match_score = min(40, matching_terms * 10)  # Up to 40 points for term matches
+    score += term_match_score
+    
+    # Check key insights for relevance
+    insights_text = " ".join(result.key_insights or []).lower()
+    insight_matches = sum(1 for term in brand_terms if term in insights_text)
+    insight_score = min(20, insight_matches * 5)  # Up to 20 points
+    score += insight_score
+    
+    # Category alignment bonus
+    category_lower = (result.primary_category or "").lower()
+    if any(term in category_lower for term in brand_terms):
+        score += 15
+    
+    # Quality score bonus (higher quality = more relevant usually)
+    if result.content_quality_score:
+        quality_bonus = int(result.content_quality_score * 10)  # Up to 10 points
+        score += min(10, quality_bonus)
+    
+    # Sentiment alignment (positive sentiment often indicates relevance for brands)
+    if result.sentiment and result.sentiment.overall == "positive":
+        score += 10
+    elif result.sentiment and result.sentiment.overall == "negative":
+        score -= 5
+    
+    # Bonus for specific brand-related categories
+    brand_friendly_categories = {'sports', 'technology', 'lifestyle', 'health', 'fitness',
+                                  'fashion', 'entertainment', 'business', 'travel', 'food'}
+    if category_lower in brand_friendly_categories:
+        score += 5
+    
+    # Ensure score is within 0-100 range
+    return max(0, min(100, score))
 
 
 @router.get("/bulk-upload", response_class=FileResponse)

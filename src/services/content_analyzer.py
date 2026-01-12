@@ -5,6 +5,8 @@ Content analysis engine that orchestrates web content fetching and AI analysis.
 import asyncio
 import logging
 import time
+import json
+import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import re
@@ -22,6 +24,9 @@ from src.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
+# Directory for checkpoint files
+CHECKPOINT_DIR = "batch_checkpoints"
+
 class ContentAnalysisEngine:
     """Main engine for comprehensive web content analysis."""
     
@@ -34,7 +39,8 @@ class ContentAnalysisEngine:
         url: str,
         analysis_depth: str = "comprehensive",
         include_metadata: bool = True,
-        custom_categories: Optional[List[str]] = None
+        custom_categories: Optional[List[str]] = None,
+        model_selection: str = "auto"
     ) -> ContentAnalysisResult:
         """
         Perform complete analysis of a single URL.
@@ -44,6 +50,7 @@ class ContentAnalysisEngine:
             analysis_depth: Depth of analysis
             include_metadata: Whether to include metadata analysis
             custom_categories: Custom categories to focus on
+            model_selection: Model to use - 'auto', 'gpt-4o-mini', or 'gpt-4o'
             
         Returns:
             Complete analysis result
@@ -78,7 +85,8 @@ class ContentAnalysisEngine:
                 url=url,
                 metadata=metadata.__dict__ if metadata else None,
                 analysis_depth=analysis_depth,
-                custom_categories=custom_categories
+                custom_categories=custom_categories,
+                model_selection=model_selection
             )
             
             # Step 5: Build comprehensive result
@@ -139,10 +147,15 @@ class ContentAnalysisEngine:
         custom_categories: Optional[List[str]] = None,
         parallel_processing: bool = True,
         options: Optional[Dict[str, Any]] = None,
-        max_concurrent: int = 5
+        max_concurrent: int = None,  # Use settings default if not specified
+        batch_size: int = 1000  # Process URLs in batches of this size
     ) -> List[ContentAnalysisResult]:
         """
-        Analyze multiple URLs with optional parallel processing.
+        Analyze multiple URLs with smart batch processing.
+        
+        URLs are processed in batches (default 1000) with concurrency control.
+        After each batch, results are logged and errors are tracked.
+        This reduces overhead and provides better visibility into progress.
         
         Args:
             urls: List of URLs to analyze
@@ -150,55 +163,236 @@ class ContentAnalysisEngine:
             include_metadata: Whether to include metadata analysis
             custom_categories: Custom categories to focus on
             parallel_processing: Whether to process in parallel
-            options: Analysis options dictionary
-            max_concurrent: Maximum concurrent analyses
+            options: Analysis options dictionary (can include model_selection)
+            max_concurrent: Maximum concurrent analyses (default: from settings)
+            batch_size: Number of URLs per batch (default: 1000)
             
         Returns:
             List of analysis results
         """
-        if parallel_processing:
-            # Process URLs in parallel with concurrency limit
-            semaphore = asyncio.Semaphore(max_concurrent)
+        # Use settings default if not specified
+        if max_concurrent is None:
+            max_concurrent = self.settings.max_concurrent_requests
+        
+        # Extract model_selection from options
+        model_selection = options.get("model_selection", "auto") if options else "auto"
+        
+        total_urls = len(urls)
+        all_results = []
+        total_success = 0
+        total_errors = 0
+        total_blocked = 0
+        
+        # Calculate number of batches
+        num_batches = (total_urls + batch_size - 1) // batch_size
+        
+        logger.info(f"🚀 Starting batch processing: {total_urls} URLs in {num_batches} batch(es) of up to {batch_size}")
+        logger.info(f"   Settings: max_concurrent={max_concurrent}, analysis_depth={analysis_depth}, model={model_selection}")
+        
+        overall_start_time = time.time()
+        
+        for batch_num in range(num_batches):
+            batch_start = batch_num * batch_size
+            batch_end = min(batch_start + batch_size, total_urls)
+            batch_urls = urls[batch_start:batch_end]
             
-            async def analyze_with_semaphore(url):
-                async with semaphore:
-                    return await self.analyze_url(url, analysis_depth, include_metadata, custom_categories)
+            logger.info(f"\n{'='*60}")
+            logger.info(f"📦 BATCH {batch_num + 1}/{num_batches}: Processing URLs {batch_start + 1}-{batch_end} of {total_urls}")
+            logger.info(f"{'='*60}")
             
-            tasks = [analyze_with_semaphore(url) for url in urls]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            batch_start_time = time.time()
             
-            # Handle exceptions in results
-            processed_results = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error(f"Error in batch analysis for URL {urls[i]}: {str(result)}")
-                    # Create error result
-                    error_result = ContentAnalysisResult(
-                        url=urls[i],
-                        status="error",
-                        primary_category="other",
-                        content_summary=f"Batch analysis failed: {str(result)}",
-                        semantic_analysis=SemanticAnalysis(),
-                        sentiment=SentimentScore(overall="neutral", confidence=0.0),
-                        metadata=ContentMetadata(),
-                        content_quality_score=0.0,
-                        processing_time_seconds=0.0,
-                        category_confidence=0.0,
-                        key_insights=[f"Error: {str(result)}"]
-                    )
-                    processed_results.append(error_result)
-                else:
-                    processed_results.append(result)
+            if parallel_processing:
+                batch_results = await self._process_batch_parallel(
+                    batch_urls, analysis_depth, include_metadata, 
+                    custom_categories, model_selection, max_concurrent
+                )
+            else:
+                batch_results = await self._process_batch_sequential(
+                    batch_urls, analysis_depth, include_metadata, custom_categories
+                )
             
-            return processed_results
-        else:
-            # Process URLs sequentially
-            results = []
-            for url in urls:
-                result = await self.analyze_url(url, analysis_depth, include_metadata, custom_categories)
-                results.append(result)
+            batch_time = time.time() - batch_start_time
             
-            return results
+            # Analyze batch results
+            batch_success = sum(1 for r in batch_results if r.status == "success")
+            batch_errors = sum(1 for r in batch_results if r.status == "error")
+            batch_blocked = sum(1 for r in batch_results if "blocked" in r.content_summary.lower() or "403" in r.content_summary)
+            
+            total_success += batch_success
+            total_errors += batch_errors
+            total_blocked += batch_blocked
+            
+            # Log batch summary
+            logger.info(f"\n📊 BATCH {batch_num + 1} COMPLETE:")
+            logger.info(f"   ✅ Success: {batch_success}/{len(batch_urls)}")
+            logger.info(f"   ❌ Errors: {batch_errors}")
+            logger.info(f"   🚫 Blocked: {batch_blocked}")
+            logger.info(f"   ⏱️  Time: {batch_time:.2f}s ({batch_time/len(batch_urls):.2f}s per URL)")
+            
+        # Log any errors in this batch
+            if batch_errors > 0:
+                error_urls = [r.url for r in batch_results if r.status == "error"][:5]
+                logger.warning(f"   Failed URLs (first 5): {error_urls}")
+            
+            all_results.extend(batch_results)
+            
+            # Save checkpoint after each batch
+            await self._save_batch_checkpoint(
+                batch_num + 1,
+                batch_results,
+                all_results,
+                total_success,
+                total_errors,
+                total_blocked,
+                time.time() - overall_start_time
+            )
+            
+            # Brief pause between batches to avoid rate limits
+            if batch_num < num_batches - 1:
+                logger.info(f"   ⏸️  Pausing 2s before next batch...")
+                await asyncio.sleep(2)
+        
+        # Final summary
+        total_time = time.time() - overall_start_time
+        logger.info(f"\n{'='*60}")
+        logger.info(f"🏁 BATCH PROCESSING COMPLETE")
+        logger.info(f"{'='*60}")
+        logger.info(f"   📈 Total URLs: {total_urls}")
+        logger.info(f"   ✅ Successful: {total_success} ({100*total_success/total_urls:.1f}%)")
+        logger.info(f"   ❌ Errors: {total_errors} ({100*total_errors/total_urls:.1f}%)")
+        logger.info(f"   🚫 Blocked: {total_blocked}")
+        logger.info(f"   ⏱️  Total time: {total_time:.2f}s")
+        logger.info(f"   📊 Avg per URL: {total_time/total_urls:.2f}s")
+        
+        return all_results
+    
+    async def _save_batch_checkpoint(
+        self,
+        batch_num: int,
+        batch_results: List[ContentAnalysisResult],
+        all_results: List[ContentAnalysisResult],
+        total_success: int,
+        total_errors: int,
+        total_blocked: int,
+        elapsed_time: float
+    ):
+        """Save checkpoint after each batch for recovery if interrupted."""
+        try:
+            # Create checkpoint directory if it doesn't exist
+            os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+            
+            # Generate timestamp for this run
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Save cumulative results to checkpoint file
+            checkpoint_file = os.path.join(CHECKPOINT_DIR, f"checkpoint_batch_{batch_num}_{timestamp}.json")
+            
+            # Convert results to serializable format
+            serializable_results = []
+            for r in all_results:
+                result_dict = {
+                    "url": r.url,
+                    "status": r.status,
+                    "primary_category": r.primary_category,
+                    "content_summary": r.content_summary,
+                    "content_quality_score": r.content_quality_score,
+                    "processing_time_seconds": r.processing_time_seconds,
+                    "category_confidence": r.category_confidence,
+                    "key_insights": r.key_insights,
+                    "token_usage": r.token_usage if isinstance(r.token_usage, dict) else None
+                }
+                # Add sentiment if available
+                if r.sentiment:
+                    result_dict["sentiment"] = {
+                        "overall": r.sentiment.overall,
+                        "confidence": r.sentiment.confidence
+                    }
+                serializable_results.append(result_dict)
+            
+            checkpoint_data = {
+                "batch_num": batch_num,
+                "timestamp": datetime.now().isoformat(),
+                "stats": {
+                    "total_processed": len(all_results),
+                    "successful": total_success,
+                    "errors": total_errors,
+                    "blocked": total_blocked,
+                    "elapsed_time_seconds": round(elapsed_time, 2)
+                },
+                "results": serializable_results
+            }
+            
+            with open(checkpoint_file, 'w', encoding='utf-8') as f:
+                json.dump(checkpoint_data, f, ensure_ascii=False, indent=2)
+            
+            logger.info(f"   💾 Checkpoint saved: {checkpoint_file} ({len(all_results)} results)")
+            
+            # Also save a "latest" file that gets overwritten each batch
+            latest_file = os.path.join(CHECKPOINT_DIR, "latest_checkpoint.json")
+            with open(latest_file, 'w', encoding='utf-8') as f:
+                json.dump(checkpoint_data, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            logger.error(f"   ⚠️ Failed to save checkpoint: {e}")
+    
+    async def _process_batch_parallel(
+        self,
+        urls: List[str],
+        analysis_depth: str,
+        include_metadata: bool,
+        custom_categories: Optional[List[str]],
+        model_selection: str,
+        max_concurrent: int
+    ) -> List[ContentAnalysisResult]:
+        """Process a batch of URLs in parallel with concurrency control."""
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def analyze_with_semaphore(url):
+            async with semaphore:
+                return await self.analyze_url(url, analysis_depth, include_metadata, custom_categories, model_selection)
+        
+        tasks = [analyze_with_semaphore(url) for url in urls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle exceptions in results
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                error_msg = str(result)
+                logger.error(f"Error analyzing {urls[i]}: {error_msg}")
+                error_result = ContentAnalysisResult(
+                    url=urls[i],
+                    status="error",
+                    primary_category="other",
+                    content_summary=f"Analysis failed: {error_msg}",
+                    semantic_analysis=SemanticAnalysis(),
+                    sentiment=SentimentScore(overall="neutral", confidence=0.0),
+                    metadata=ContentMetadata(),
+                    content_quality_score=0.0,
+                    processing_time_seconds=0.0,
+                    category_confidence=0.0,
+                    key_insights=[f"Error: {error_msg}"]
+                )
+                processed_results.append(error_result)
+            else:
+                processed_results.append(result)
+        
+        return processed_results
+    
+    async def _process_batch_sequential(
+        self,
+        urls: List[str],
+        analysis_depth: str,
+        include_metadata: bool,
+        custom_categories: Optional[List[str]]
+    ) -> List[ContentAnalysisResult]:
+        """Process a batch of URLs sequentially."""
+        results = []
+        for url in urls:
+            result = await self.analyze_url(url, analysis_depth, include_metadata, custom_categories)
+            results.append(result)
+        return results
     
     def _extract_text_content(self, html_content: str) -> str:
         """Extract clean text content from HTML."""

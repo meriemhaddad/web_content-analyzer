@@ -10,8 +10,8 @@ class URLAnalysisRequest(BaseModel):
     
     url: HttpUrl = Field(..., description="The URL to analyze")
     analysis_depth: str = Field(
-        default="comprehensive",
-        description="Analysis depth: 'basic', 'detailed', or 'comprehensive'"
+        default="basic",
+        description="Analysis depth: 'basic' (fast, category-only), 'standard', or 'comprehensive' (full analysis)"
     )
     include_metadata: bool = Field(
         default=True,
@@ -27,8 +27,8 @@ class BatchAnalysisRequest(BaseModel):
     
     urls: List[HttpUrl] = Field(..., description="List of URLs to analyze", max_length=10)
     analysis_depth: str = Field(
-        default="comprehensive",
-        description="Analysis depth: 'basic', 'detailed', or 'comprehensive'"
+        default="basic",
+        description="Analysis depth: 'basic' (fast, category-only), 'standard', or 'comprehensive' (full analysis)"
     )
     include_metadata: bool = Field(
         default=True,
